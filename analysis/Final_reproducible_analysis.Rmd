@@ -208,33 +208,22 @@ if (!is.null(m_ob)) { cat("\n--- ordered-beta cross-check (proportion) ---\n"); 
 
 The PowerPoint experiment schematic is placed above this panel in the final figure.
 
-```{r fig1-survival, fig.width=14, fig.height=3.8}
-# End-timepoint survival under each T0 denominator, plotted with a distinct point shape so the
-# sensitivity to the initial-density estimate is visible. Box plot + mean use the COMPOSITE (the
-# value used for all statistics); the Calculated / Average / Seeded variants are overlaid as points.
+```{r fig1-survival, fig.width=14, fig.height=3.6}
+# Composite-denominator survival at the end timepoint (the value used for all statistics). The
+# sensitivity to the T0 denominator choice is shown separately in Fig S3.
 mort_end2 <- final_data_end[, .(Block, Treatment,
   Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))),
-  Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)]
-mort_long <- melt(mort_end2, id.vars = c("Block","Treatment","Spawn"),
-                  variable.name = "Denominator", value.name = "Survival")
-mort_long[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
-denom_shapes <- c(Composite = 16, Calculated = 1, Average = 2, Seeded = 5)
-
-fig1b <- ggplot() +
-  geom_boxplot(data = mort_long[Denominator == "Composite"],
-               aes(Treatment, Survival, fill = Treatment),
-               notch = FALSE, outlier.colour = NA, alpha = 0.75, colour = "black", width = 0.25) +
-  stat_summary(data = mort_long[Denominator == "Composite"], aes(Treatment, Survival),
-               fun = mean, geom = "point", shape = 15, size = 3, colour = "black") +
-  geom_point(data = mort_long, aes(Treatment, Survival, colour = Treatment, shape = Denominator),
-             position = position_jitter(width = 0.14, height = 0), size = 1.9, alpha = 0.85) +
-  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
-  scale_shape_manual(values = denom_shapes, name = "T0 denominator") +
+  Survival = surv_Composite)]
+fig1b <- ggplot(mort_end2, aes(Treatment, Survival, fill = Treatment)) +
+  geom_boxplot(notch = FALSE, outlier.colour = NA, alpha = 0.75, colour = "black", width = 0.25) +
+  stat_summary(fun = mean, geom = "point", shape = 15, size = 3, colour = "black") +
+  geom_jitter(aes(colour = Treatment), width = 0.08, height = 0, size = 2, alpha = 0.8) +
+  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols) +
   facet_wrap(~ Spawn, nrow = 1, scales = "free_y") +
-  labs(x = NULL, y = "Percent survival") +
+  labs(x = NULL, y = "Percent survival (composite T0)") +
   theme_case() +
   theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
-        legend.position = "bottom")
+        legend.position = "none")
 fig1b
 ```
 
@@ -301,6 +290,33 @@ figS1 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
                   title = "Fig S1 — Larval morphology and development")
 save_supp(figS1, "FigS1_morphology.png", width = 16, height = 13)
 figS1
+```
+
+### Fig S2 — Final survival across T0 denominators
+
+Sensitivity of the mortality estimate to the initial-density (T0) reference. The main figure
+(Fig 1) uses the composite denominator; here the end-timepoint survival is shown under all four
+denominators, faceted by spawn (rows) and denominator (columns), so the treatment order can be
+seen to hold regardless of the reference.
+
+```{r figS2-mortality-denominators, fig.width=12, fig.height=11}
+mort_dn <- melt(final_data_end[, .(Block,
+    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
+    Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
+  id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
+mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
+figS2mort <- ggplot(mort_dn, aes(Treatment, Survival, fill = Treatment)) +
+  geom_boxplot(outlier.colour = NA, alpha = 0.7, colour = "black", width = 0.55) +
+  geom_jitter(aes(colour = Treatment), width = 0.12, height = 0, size = 1.1, alpha = 0.7) +
+  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
+  facet_grid(Spawn ~ Denominator, scales = "free_y") +
+  labs(x = NULL, y = "Percent survival",
+       title = "Fig S2 — final survival by treatment across T0 denominators and spawns") +
+  theme_case(11) +
+  theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
+        legend.position = "none")
+save_supp(figS2mort, "FigS2_mortality_denominators.png", width = 12, height = 11)
+figS2mort
 ```
 
 # Genomic data — shared substrate
@@ -402,7 +418,7 @@ cat <(echo "SNP") <(cat Block1*.pos | cut -f1,2 | sort | uniq -c | mawk '$1 <2' 
 
 ## Background allele frequencies (10,000 random loci)
 
-Used for the genome-wide PCA (Fig S2).
+Used for the genome-wide PCA (Fig S3).
 
 ```{bash, eval = FALSE}
 source activate CASE
@@ -2041,7 +2057,7 @@ clG <- merge(clG, cl_sum[, .(cluster_id, cluster, stress, minF)], by = "cluster_
 go_clusters_full   <- clG[order(minF, Fisher), .(cluster, stress, GO, Term, Fisher, CA, SE, CASE)]
 go_clusters_stress <- cl_sum[stress == TRUE][order(minF), .(cluster, CA, SE, CASE, n, minF)]
 
-# all clusters x treatment and x tier (for Fig S11)
+# all clusters x treatment and x tier (for Fig S12)
 go_clusters_trt <- clG[, .(CA = sum(CA), SE = sum(SE), CASE = sum(CASE),
                            minF = minF[1L], stress = stress[1L]), by = cluster]
 tier_core <- unique(GO_Core_ALL$GeneOntologyIDs)
@@ -2451,7 +2467,7 @@ save_case(fig2, "Fig2_outliers_repeatability.png", width = 15, height = 12)
 fig2
 ```
 
-## Fig S2 — Genome-wide PCA (10,000 random loci)
+## Fig S3 — Genome-wide PCA (10,000 random loci)
 
 ```{r figS2-genomewide-pca, fig.width=13, fig.height=5}
 afr_t <- t(input.all.rand.af)
@@ -2475,12 +2491,12 @@ venn_panel <- patchwork::wrap_elements(full = grid::rasterGrob(png::readPNG("Ven
                                                                interpolate = TRUE))
 figS2 <- venn_panel + p_s2_treat + p_s2_spawn +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S2 — Called-SNP overlap and genome-wide PCA (10,000 random loci)")
-save_supp(figS2, "FigS2_genomewide_PCA.png", width = 18, height = 5.5)
+                  title = "Fig S3 — Called-SNP overlap and genome-wide PCA (10,000 random loci)")
+save_supp(figS2, "FigS3_genomewide_PCA.png", width = 18, height = 5.5)
 figS2
 ```
 
-## Fig S3 — Tier-specific PCA
+## Fig S4 — Tier-specific PCA
 
 ## Tier-specific PCA
 
@@ -2621,8 +2637,8 @@ print(pca.priv$p_treat)
 figS3 <- (pca.core$p_treat + pca.conv$p_treat + pca.priv$p_treat) +
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S3 — Tier-specific PCA (treatment-coloured): Core | Convergent | Private")
-save_supp(figS3, "FigS3_tier_PCA.png", width = 16, height = 5.5)
+                  title = "Fig S4 — Tier-specific PCA (treatment-coloured): Core | Convergent | Private")
+save_supp(figS3, "FigS4_tier_PCA.png", width = 16, height = 5.5)
 figS3
 ```
 
@@ -2632,64 +2648,78 @@ Magnitude synergy asks whether the combined-stressor allele-frequency change exc
 the single-stressor changes. Both axes are anchored on the control to remove the shared
 lab/handling response — the correction the pool-seq multiple-stressor precedent (Brennan et al.
 2022; Burny & Schlötterer 2022) treats as essential: `y = ΔAF_CASE − ΔAF_CON` against
-`x = (ΔAF_CA − ΔAF_CON) + (ΔAF_SE − ΔAF_CON)`, one point per locus per block (coverage floor 20).
-The 1:1 line is the additive null; loci are split into mutually exclusive significance-overlap
-categories. Because outliers are ascertained on their own significance, points sit off the
-additive line partly by construction — **sub-additivity (where CA contributes) is the robust
-reading; a CASE-specific supra-additive tendency is the hedged one.**
+`x = (ΔAF_CA − ΔAF_CON) + (ΔAF_SE − ΔAF_CON)`, coverage floor 20. Fits use one point per locus
+(averaged across the blocks it appears in); the scatter shows the per-block points coloured by
+spawn on a background of a 10,000-locus subsample of non-outlier loci (the genome-wide additive
+expectation). Loci are split into significance-overlap panels — four mutually exclusive (CASE
+only; CASE & SE; CASE & CA; CA & SE with no CASE) plus two reference supersets (CASE significant
+overall; CASE & SE & CA). The dashed line is the additive 1:1 null; the solid black line is the
+per-panel orthogonal (Deming) fit. Because outliers are ascertained on their own significance,
+points sit off the additive line partly by construction — **sub-additivity (where CA contributes)
+is the robust reading; a CASE-specific supra-additive tendency is the hedged one.**
 
 ```{r fig3-additivity-data}
 add_floor  <- 20
+add_blocks <- c("b10","b11","b12")
 add_design <- list(b10 = list(gen = c(0,1,0,1,0,1),       repl = c(1,1,2,2,3,3)),
                    b11 = list(gen = c(0,1,0,1,0,1,0,1),   repl = c(1,1,2,2,3,3,4,4)),
                    b12 = list(gen = c(0,1,0,1,0,1,0,1),   repl = c(1,1,2,2,3,3,4,4)))
 add_us <- function(x) sub("\\.(?=[^.]+$)", "_", x, perl = TRUE)
 
-# treatment-level per-locus ΔAF (mean over replicate pre/post pairs), coverage-filtered per pool.
+# treatment-level ΔAF per locus per block: mean(post) - mean(initial), coverage-filtered per pool.
 add_delta <- function(tr, blk) {
   af  <- as.matrix(get(paste0(tolower(tr), ".", blk, ".af")))
   cov <- as.matrix(get(paste0(tolower(tr), ".", blk, ".cov")))
-  des <- add_design[[blk]]; gen <- des$gen; repl <- des$repl
-  reps <- unique(repl); D <- matrix(NA_real_, nrow(af), length(reps))
-  for (j in seq_along(reps)) {
-    r <- reps[j]; i0 <- which(repl == r & gen == 0); i1 <- which(repl == r & gen == 1)
-    if (length(i0) != 1 || length(i1) != 1) next
-    p0 <- af[, i0]; c0 <- cov[, i0]; p1 <- af[, i1]; c1 <- cov[, i1]
-    ok <- is.finite(p0) & is.finite(p1) & is.finite(c0) & is.finite(c1) & c0 >= add_floor & c1 >= add_floor
-    dd <- rep(NA_real_, nrow(af)); dd[ok] <- p1[ok] - p0[ok]; D[, j] <- dd
-  }
-  data.table(SNP = add_us(rownames(af)), d = rowMeans(D, na.rm = TRUE))
+  des <- add_design[[blk]]; gen <- des$gen
+  i0 <- which(gen == 0); i1 <- which(gen == 1)
+  mm <- function(cols) { a <- af[, cols, drop = FALSE]; c <- cov[, cols, drop = FALSE]
+    a[!(is.finite(a) & is.finite(c) & c >= add_floor)] <- NA_real_; rowMeans(a, na.rm = TRUE) }
+  data.table(SNP = add_us(rownames(af)), d = mm(i1) - mm(i0))
 }
 
-# one point per locus per block: y = CASE anchored change, x = CA + SE anchored additive expectation
-add_pl <- rbindlist(lapply(c("b10","b11","b12"), function(blk) {
-  m <- Reduce(function(a, b) merge(a, b, by = "SNP"), list(
-    add_delta("CA",   blk)[, .(SNP, dCA   = d)],
-    add_delta("SE",   blk)[, .(SNP, dSE   = d)],
-    add_delta("CASE", blk)[, .(SNP, dCASE = d)],
-    add_delta("CON",  blk)[, .(SNP, dCON  = d)]))
-  m <- m[is.finite(dCA) & is.finite(dSE) & is.finite(dCASE) & is.finite(dCON)]
-  m[, .(SNP, block = toupper(blk), y = dCASE - dCON, x = (dCA - dCON) + (dSE - dCON))]
+# per-block anchored changes (for the coloured scatter)
+add_perblk <- rbindlist(lapply(add_blocks, function(blk) {
+  d <- Reduce(function(a, b) merge(a, b, by = "SNP"), list(
+    add_delta("CA",   blk)[, .(SNP, dCA   = d)], add_delta("SE",   blk)[, .(SNP, dSE   = d)],
+    add_delta("CASE", blk)[, .(SNP, dCASE = d)], add_delta("CON",  blk)[, .(SNP, dCON  = d)]))
+  d <- d[is.finite(dCA) & is.finite(dSE) & is.finite(dCASE) & is.finite(dCON)]
+  d[, .(SNP, block = toupper(blk), y = dCASE - dCON, x = (dCA - dCON) + (dSE - dCON))]
 }))
+add_perblk[, block := factor(block, levels = toupper(add_blocks))]
 
-# mutually exclusive significance-overlap categories from the final CON-filtered outlier set
+# one point per locus (averaged across blocks) — used for panel membership and the fits
+add_pl <- add_perblk[, .(x = mean(x), y = mean(y), n_blk = .N), by = SNP]
 add_gts  <- as.data.table(grouped_total.sig)
 add_flag <- function(col) unique(add_gts[as.logical(get(col)), SNP])
 sc_CASE <- add_flag("Sig.CASE"); sc_CA <- add_flag("Sig.CA"); sc_SE <- add_flag("Sig.SE")
-add_pl[, `:=`(sC = SNP %in% sc_CASE, sA = SNP %in% sc_CA, sS = SNP %in% sc_SE)]
-add_lev <- c("CASE only", "CASE & SE", "CASE & CA", "CA & SE (no CASE)")
-add_pl[, cat := NA_character_]
-add_pl[ sC & !sA & !sS,  cat := "CASE only"]
-add_pl[ sC &  sS & !sA,  cat := "CASE & SE"]
-add_pl[ sC &  sA & !sS,  cat := "CASE & CA"]
-add_pl[ sA &  sS & !sC,  cat := "CA & SE (no CASE)"]
-add_pl[, cat := factor(cat, levels = add_lev)]
-cat("Fig 3 loci per category (per-locus-per-block points):\n"); print(add_pl[!is.na(cat), .N, by = cat][order(cat)])
+add_pl[, `:=`(sCASE = SNP %in% sc_CASE, sCA = SNP %in% sc_CA, sSE = SNP %in% sc_SE)]
+
+# Panels: four mutually exclusive + two reference supersets (a locus can appear in more than one
+# of the supersets, so these are built as explicit membership lists rather than a single factor).
+add_lev <- c("CASE only", "CASE & SE", "CASE & CA", "CA & SE (no CASE)",
+             "CASE significant (all)", "CASE & SE & CA")
+add_panels <- list(
+  `CASE only`              = add_pl[ sCASE & !sCA & !sSE, SNP],
+  `CASE & SE`               = add_pl[ sCASE &  sSE & !sCA, SNP],
+  `CASE & CA`               = add_pl[ sCASE &  sCA & !sSE, SNP],
+  `CA & SE (no CASE)`       = add_pl[ sCA   &  sSE & !sCASE, SNP],
+  `CASE significant (all)`  = add_pl[ sCASE, SNP],
+  `CASE & SE & CA`           = add_pl[ sCASE & sCA & sSE, SNP])
+cat("Fig 3 loci per panel:\n")
+print(rbindlist(lapply(add_lev, function(nm) data.table(panel = nm, n = length(add_panels[[nm]])))))
+
+add_plpanel <- rbindlist(lapply(add_lev, function(nm) { s <- add_panels[[nm]]
+  if (!length(s)) return(NULL); add_pl[SNP %in% s, .(SNP, x, y, panel = nm)] }))
+add_plpanel[, panel := factor(panel, levels = add_lev)]
+add_perblk_panel <- rbindlist(lapply(add_lev, function(nm) { s <- add_panels[[nm]]
+  if (!length(s)) return(NULL); add_perblk[SNP %in% s, .(SNP, block, x, y, panel = nm)] }))
+add_perblk_panel[, panel := factor(panel, levels = add_lev)]
+add_bgpool <- add_pl[!sCASE & !sCA & !sSE]      # non-outlier background pool
 ```
 
-## 3.1 Additivity scatter and per-category fits (OLS + orthogonal)
+## 3.1 Additivity scatter and per-panel orthogonal fits
 
-```{r fig3-additivity, fig.width=9, fig.height=9}
+```{r fig3-additivity, fig.width=11, fig.height=7}
 # orthogonal (Deming, error-variance ratio 1) fit: does not treat x as error-free
 deming <- function(x, y) {
   ok <- is.finite(x) & is.finite(y); x <- x[ok]; y <- y[ok]
@@ -2697,52 +2727,53 @@ deming <- function(x, y) {
   b <- (syy - sxx + sqrt((syy - sxx)^2 + 4 * sxy^2)) / (2 * sxy)
   c(intercept = mean(y) - b * mean(x), slope = b)
 }
-cats <- add_pl[!is.na(cat)]
-fit_ols  <- cats[, as.list(coef(lm(y ~ x))), by = cat]; setnames(fit_ols, c("cat","ols_int","ols_slope"))
-fit_orth <- cats[, as.list(deming(x, y)), by = cat]                 # cat, intercept, slope
-fitcat   <- cats[, .(n = .N, pct_above = 100 * mean(y > x), r = cor(x, y)), by = cat]
-fitcat   <- Reduce(function(a, b) merge(a, b, by = "cat"),
-                   list(fitcat, fit_ols[, .(cat, ols_slope)], fit_orth[, .(cat, orth_slope = slope)]))
-setcolorder(fitcat, c("cat","n","ols_slope","orth_slope","pct_above","r")); setorder(fitcat, cat)
-print(fitcat)
-fwrite(fitcat, file.path(out_dir, "Fig3_additivity_by_category.csv"))
+# one row per locus per panel for the fits (no block-level pseudoreplication)
+add_fitdt  <- add_plpanel[, as.list(deming(x, y)), by = panel]        # panel, intercept, slope
+add_catsum <- add_plpanel[, { f <- sign(y); f[f == 0] <- 1
+  .(n = .N, slope = unname(deming(x, y)["slope"]),
+    mean_excess = mean(f * y - f * x), frac_supra = mean(f * y > f * x)) }, by = panel][order(panel)]
+print(add_catsum)
+cat(sprintf("\nGenome-wide orthogonal slope (all loci, reference): %.2f\n",
+            unname(deming(add_pl$x, add_pl$y)["slope"])))
+fwrite(add_plpanel, file.path(out_dir, "Fig3_additivity_perlocus.csv"))
+fwrite(add_catsum,  file.path(out_dir, "Fig3_additivity_by_category.csv"))
 
-rng <- quantile(c(cats$x, cats$y), c(0.01, 0.99), na.rm = TRUE)
-bg  <- rbindlist(lapply(add_lev, function(L) { d <- add_pl[, .(x, y)]; d[, cat := L]; d }))
-bg[, cat := factor(cat, levels = add_lev)]
-ann <- merge(fitcat, data.table(cat = factor(add_lev, levels = add_lev)), by = "cat", all.y = TRUE)
-ann[, lab := sprintf("OLS %.2f | orth %.2f\n%.0f%% above 1:1 | r=%.2f", ols_slope, orth_slope, pct_above, r)]
-cat_cols <- c("CASE only" = "#009E73", "CASE & SE" = "#0072B2",
-              "CASE & CA" = "#E69F00", "CA & SE (no CASE)" = "grey30")
+rng <- quantile(c(add_pl$x, add_pl$y), c(0.005, 0.995), na.rm = TRUE)
+set.seed(1); n_bg <- 10000
+bg_snps <- add_bgpool[sample.int(.N, min(n_bg, .N)), SNP]
+bg <- rbindlist(lapply(add_lev, function(L) { d <- add_pl[SNP %in% bg_snps, .(x, y)]; d[, panel := L]; d }))
+bg[, panel := factor(panel, levels = add_lev)]
+ann <- add_fitdt[add_catsum, on = "panel"][, lab := sprintf("slope %.2f\n%.0f%% above 1:1", slope, 100 * frac_supra)]
+block_cols <- c(B10 = "#0072B2", B11 = "#D55E00", B12 = "#009E73")
 
 fig3_add <- ggplot(mapping = aes(x, y)) +
   geom_bin2d(data = bg, bins = 80) +
-  scale_fill_gradient(name = "all loci", low = "grey92", high = "grey55", trans = "log10") +
-  geom_point(data = cats, aes(colour = cat), size = 0.5, alpha = 0.5, show.legend = FALSE) +
-  scale_colour_manual(values = cat_cols) +
+  scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
+                      low = "grey92", high = "grey55", trans = "log10") +
+  geom_point(data = add_perblk_panel, aes(colour = block), size = 0.6, alpha = 0.6) +
+  scale_colour_manual(name = "block", values = block_cols) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
-  geom_abline(data = fit_ols,  aes(slope = ols_slope, intercept = ols_int),  colour = "#D55E00") +
-  geom_abline(data = fit_orth, aes(slope = slope,     intercept = intercept), colour = "#0072B2", linetype = "dotted") +
+  geom_abline(data = add_fitdt, aes(slope = slope, intercept = intercept), colour = "black", linewidth = 0.6) +
   geom_text(data = ann, aes(label = lab), x = rng[1], y = rng[2], hjust = 0, vjust = 1,
-            size = 2.8, inherit.aes = FALSE) +
-  facet_wrap(~ cat) +
+            size = 3, lineheight = 0.9, inherit.aes = FALSE) +
+  facet_wrap(~ panel, ncol = 3) +
   coord_equal(xlim = rng, ylim = rng) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
        y = "ΔAF CASE − ΔAF CON   [combined response]",
        title = "Fig 3 — Magnitude synergy: control-anchored additivity",
-       subtitle = "dashed = additive 1:1;  solid = OLS;  dotted = orthogonal fit") +
+       subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = block") +
   theme_case(12)
 fig3_add
-save_case(fig3_add, "Fig3_magnitude_additivity.png", width = 9, height = 9)
+save_case(fig3_add, "Fig3_magnitude_additivity.png", width = 11, height = 7)
 ```
 
-## Fig S4 — Additivity scatter faceted by replication tier
+## Fig S5 — Additivity scatter faceted by replication tier
 
 Robustness of Fig 3 across the replication tiers (Core / Convergent / Private), reporting OLS
 alongside the orthogonal fit so the steeper orthogonal slope is not read as supra-additivity on
-its own (resolves the slope ~1.48 caveat).
+its own (resolves the slope ~1.48 caveat). One point per locus (averaged across blocks).
 
-```{r figS4-additivity-tier, fig.width=11, fig.height=4.5}
+```{r figS5-additivity-tier, fig.width=11, fig.height=4.5}
 add_tier <- rbindlist(list(
   data.table(SNP = core.sig$SNP,       tier = "Core"),
   data.table(SNP = convergent.sig$SNP, tier = "Convergent"),
@@ -2755,12 +2786,12 @@ fit_t <- add_pl_t[, { ols <- coef(lm(y ~ x)); orth <- deming(x, y)
     orth_int = orth["intercept"], orth_slope = orth["slope"],
     pct_above = 100 * mean(y > x), r = cor(x, y)) }, by = tier][order(tier)]
 print(fit_t)
-fwrite(fit_t, file.path(supp_dir, "FigS4_additivity_by_tier.csv"))
+fwrite(fit_t, file.path(supp_dir, "FigS5_additivity_by_tier.csv"))
 
 rng_t <- quantile(c(add_pl_t$x, add_pl_t$y), c(0.01, 0.99), na.rm = TRUE)
 ann_t  <- fit_t[, .(tier, lab = sprintf("OLS %.2f | orth %.2f\n%.0f%% above | r=%.2f",
                                         ols_slope, orth_slope, pct_above, r))]
-figS4_add <- ggplot(add_pl_t, aes(x, y)) +
+figS5_add <- ggplot(add_pl_t, aes(x, y)) +
   geom_bin2d(bins = 80) +
   scale_fill_gradient(name = "loci", low = "grey92", high = "grey45", trans = "log10") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
@@ -2770,11 +2801,11 @@ figS4_add <- ggplot(add_pl_t, aes(x, y)) +
             hjust = 0, vjust = 1, size = 2.8, inherit.aes = FALSE) +
   facet_wrap(~ tier) + coord_equal(xlim = rng_t, ylim = rng_t) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)", y = "ΔAF CASE − ΔAF CON",
-       title = "Fig S4 — control-anchored additivity by replication tier",
+       title = "Fig S5 — control-anchored additivity by replication tier",
        subtitle = "dashed = 1:1;  solid = OLS;  dotted = orthogonal") +
   theme_case(12)
-save_supp(figS4_add, "FigS4_additivity_by_tier.png", width = 11, height = 4.5)
-figS4_add
+save_supp(figS5_add, "FigS5_additivity_by_tier.png", width = 11, height = 4.5)
+figS5_add
 ```
 
 # Fig 4 — Compositional synergy (novel targets)
@@ -2866,11 +2897,11 @@ mk_manhattan_stack <- function(block_pv, bn, ymax) {
   (ca / se / case) & theme(plot.margin = margin(10, 0, 0, 0))
 }
 figS5 <- mk_manhattan_stack(pv_list$B10, 10,40)
-save_supp(figS5, "FigS6_B10_manhattan_3stressor.png", width = 11, height = 10)
+save_supp(figS5, "FigS7_B10_manhattan_3stressor.png", width = 11, height = 10)
 figS5
 
 figS6 <- mk_manhattan_stack(pv_list$B11, 11,12)
-save_supp(figS6, "FigS7_B11_manhattan_3stressor.png", width = 11, height = 10)
+save_supp(figS6, "FigS8_B11_manhattan_3stressor.png", width = 11, height = 10)
 figS6
 ```
 
@@ -3054,7 +3085,7 @@ save_case(fig3, "Fig4_compositional_synergy.png", width = 16, height = 15)
 #fig3
 ```
 
-## Fig S5 — Per-spawn outlier overlap (Venns)
+## Fig S6 — Per-spawn outlier overlap (Venns)
 
 ```{r figS4-spawn-venns, fig.width=15, fig.height=5.5}
 spawn_venn_grob <- function(b) {
@@ -3077,12 +3108,12 @@ figS4 <- patchwork::wrap_elements(spawn_venn_grob("B10")) +
          patchwork::wrap_elements(spawn_venn_grob("B11")) +
          patchwork::wrap_elements(spawn_venn_grob("B12")) +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S5 — Per-spawn outlier overlap across stressors (CA / SE / CASE)")
-save_supp(figS4, "FigS5_spawn_venns.png", width = 15, height = 5.5)
+                  title = "Fig S6 — Per-spawn outlier overlap across stressors (CA / SE / CASE)")
+save_supp(figS4, "FigS6_spawn_venns.png", width = 15, height = 5.5)
 figS4
 ```
 
-## Fig S8 — Full GO enrichment by stressor (topGO)
+## Fig S9 — Full GO enrichment by stressor (topGO)
 
 One figure per category (ALL / CA / SE / CASE); the curated subset is in Fig 4.
 
@@ -3092,7 +3123,7 @@ go_full_files  <- c(ALL = "ALL_GO_en_sig_gene.csv", CA = "CA_GO_en_sig_gene.csv"
                    SE = "SE_GO_en_sig_gene.csv", CASE = "CASE_GO_en_sig_gene.csv")
 go_full_labels <- c(ALL = "All Outlier Loci", CA = "CA Stressor", SE = "SE Stressor",
                     CASE = "CASE Stressor (CA+SE)")
-go_full_fignum <- c(ALL = "S8", CA = "S9", SE = "S10", CASE = "S11")
+go_full_fignum <- c(ALL = "S9", CA = "S10", SE = "S11", CASE = "S12")
 go_cat_cols <- c(`GO:BP` = "#4DAF4A", `GO:CC` = "#377EB8", `GO:MF` = "#984EA3", other = "grey60")
 plot_go_full <- function(file, label, fignum) {
   d <- as.data.table(fread(file.path(go_dir2, file)))
@@ -3120,7 +3151,7 @@ for (tr in names(go_full_files)) {
 }
 ```
 
-## Fig S12 — GO-term overlap and biological-theme enrichment
+## Fig S13 — GO-term overlap and biological-theme enrichment
 
 ```{r go-fig-helpers}
 # Collapse gene x term -> unique GO terms (best Fisher per term).
@@ -3282,8 +3313,8 @@ p_clust_tier <- ggplot(bk, aes(Tier, cluster, fill = Tier, alpha = n)) +
 figS11 <- patchwork::wrap_elements(venn_grob) + p_clust_trt + p_clust_tier +
   plot_layout(widths = c(1, 1.1, 0.9)) +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S12 — GO-term overlap and data-driven cluster enrichment (by stressor and by tier)")
-save_supp(figS11, "FigS12_GO_synthesis.png", width = 16, height = 7)
+                  title = "Fig S13 — GO-term overlap and data-driven cluster enrichment (by stressor and by tier)")
+save_supp(figS11, "FigS13_GO_synthesis.png", width = 16, height = 7)
 figS11
 ```
 
@@ -3389,7 +3420,7 @@ fig4_he_panel
 ```{r fig5-he-null, fig.width=11, fig.height=4}
 # Frequency/shift-matched neutral null for the CON-anchored He excess, per tier x treatment,
 # using the SAME read-count-corrected He and coverage floor as the observed panel above. Overlays
-# the null band (2.5-97.5%) and z on the He panel; matching diagnostics -> Fig S13.
+# the null band (2.5-97.5%) and z on the He panel; matching diagnostics -> Fig S14.
 he_B <- 1000; he_maf_breaks <- seq(0, 0.5, by = 0.05); he_cal <- 0.15; he_adp_floor <- 0.01
 set.seed(1)
 he_all_out <- unique(unlist(lapply(names(he_tier_objs), function(ti)
@@ -3477,13 +3508,13 @@ figS13 <- (ggplot(he_null_dt, aes(treatment, z, fill = treatment)) +
              geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
              geom_col(alpha = 0.85) + facet_wrap(~ tier) +
              scale_fill_manual(values = unlist(treat_cols[c("CA","SE","CASE")])) +
-             labs(title = "Fig S13A — He excess relative to the frequency/shift-matched null (z)",
+             labs(title = "Fig S14A — He excess relative to the frequency/shift-matched null (z)",
                   x = NULL, y = "z") + theme_case(11) + theme(legend.position = "none")) /
            (ggplot(he_diag_dt, aes(treatment, pct_matched, fill = block)) +
              geom_col(position = "dodge") + facet_wrap(~ tier) +
-             labs(title = "Fig S13B — matched-null retention (% of outliers with a shift-matched neutral)",
+             labs(title = "Fig S14B — matched-null retention (% of outliers with a shift-matched neutral)",
                   x = NULL, y = "% matched") + theme_case(11))
-save_supp(figS13, "FigS13_He_null_diagnostics.png", width = 9, height = 8)
+save_supp(figS13, "FigS14_He_null_diagnostics.png", width = 9, height = 8)
 figS13
 ```
 
@@ -3551,12 +3582,12 @@ save_case(fig4, "Fig5_architecture_density2d.png", width = 14, height = 9)
 fig4
 ```
 
-## Fig S14 — Top enriched GO terms per tier (topGO)
+## Fig S15 — Top enriched GO terms per tier (topGO)
 
 ```{r fig5-go-lollipop, fig.width=7, fig.height=11}
 # Top enriched GO terms per tier (Core/Convergent/Private), all stressors pooled,
 # lollipop style. Stacked vertically (one tier per row) so term labels have room.
-# Reuses go_dir2 / go_cat_cols from Fig S8. Point size = proportion of significant genes
+# Reuses go_dir2 / go_cat_cols from Fig S9. Point size = proportion of significant genes
 # annotated to that term; colour = GO category (BP/CC/MF). Not split by stressor.
 go_tier_files <- c(Core = "Core_ALL_GO_en_sig_gene.csv",
                    Convergent = "Conv_ALL_GO_en_sig_gene.csv",
@@ -3591,12 +3622,12 @@ plot_go_lollipop <- function(file, label, top_n = 10, leg = FALSE) {
 fig5 <- (free(plot_go_lollipop(go_tier_files[["Core"]], "Core"), type= "label") /
   free(plot_go_lollipop(go_tier_files[["Convergent"]], "Convergent") , type = "label")/
   free(plot_go_lollipop(go_tier_files[["Private"]], "Private", leg = TRUE), type="label")) / guide_area() + plot_layout(guides = "collect", heights = c(3,3,3,1))
-fig5 <- fig5 + plot_annotation(title = "Fig S14 — top enriched GO terms by tier (all stressors pooled)") & theme(legend.box = "horizontal", legend.box.margin = margin(0, 0, -20, -100), legend.key.spacing.x = unit(3.0, "cm"))
-save_supp(fig5, "FigS14_GO_by_tier.png", width = 7, height = 11)
+fig5 <- fig5 + plot_annotation(title = "Fig S15 — top enriched GO terms by tier (all stressors pooled)") & theme(legend.box = "horizontal", legend.box.margin = margin(0, 0, -20, -100), legend.key.spacing.x = unit(3.0, "cm"))
+save_supp(fig5, "FigS15_GO_by_tier.png", width = 7, height = 11)
 fig5
 ```
 
-## Fig S15 — Tier architecture by spawn (3x3)
+## Fig S16 — Tier architecture by spawn (3x3)
 
 ```{r fig4-density2d-byspawn, fig.width=14, fig.height=14.5}
 # Same composite cell (2D scatter + MAF0/|dAF| marginals) as fig4, but faceted into a
@@ -3640,8 +3671,8 @@ fig4_grid <- lapply(spawn_rows, function(blk) {
 })
 
 fig4_byspawn <- wrap_plots(fig4_grid, ncol = 1) +
-  plot_annotation(title = "Fig S15 — tier architecture by spawn: MAF × |ΔAF| (2D density + marginals)")
-save_supp(fig4_byspawn, "FigS15_architecture_byspawn.png", width = 14, height = 14.5)
+  plot_annotation(title = "Fig S16 — tier architecture by spawn: MAF × |ΔAF| (2D density + marginals)")
+save_supp(fig4_byspawn, "FigS16_architecture_byspawn.png", width = 14, height = 14.5)
 fig4_byspawn
 ```
 
@@ -3678,7 +3709,7 @@ for (tr in names(loc_src))
 
 ## Table S3 — GO enrichment terms by stressor (one row per term)
 
-The Fig S7-S10 dot plots are dense; the tables below give the same topGO
+The Fig S8-S10 dot plots are dense; the tables below give the same topGO
 results (deduplicated to one row per GO term) in a readable form, sorted
 by Fisher p-value.
 
