@@ -2703,7 +2703,7 @@ add_panels <- list(
   `CASE & SE`               = add_pl[ sCASE &  sSE & !sCA, SNP],
   `CASE & CA`               = add_pl[ sCASE &  sCA & !sSE, SNP],
   `CA & SE (no CASE)`       = add_pl[ sCA   &  sSE & !sCASE, SNP],
-  `CASE significant (all)`  = add_pl[ sCASE, SNP],
+  `CASE significant (all)`  = add_pl[ (sCASE), SNP],
   `CASE & SE & CA`           = add_pl[ sCASE & sCA & sSE, SNP])
 cat("Fig 3 loci per panel:\n")
 print(rbindlist(lapply(add_lev, function(nm) data.table(panel = nm, n = length(add_panels[[nm]])))))
