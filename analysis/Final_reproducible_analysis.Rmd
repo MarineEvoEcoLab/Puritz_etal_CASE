@@ -158,66 +158,83 @@ mamba env create --file ../random_draw_environment.yaml
 
 ```{r survival-stats}
 mort_file <- "../data/CASE_FINAL_Mortality.txt"
-final_data <- read.table(mort_file, sep = "\t", header = TRUE)
-final_data$Treatment <- factor(final_data$Treatment, levels = c("CON","CA","SE","CASE"))
-final_data_end <- subset(final_data, final_data$Time > 12)
-final_data_end <- final_data_end %>%
-  group_by(Block) %>%
-  mutate(Survival_centered = Survival - mean(Survival)) %>%
-  ungroup()
+mort_all  <- fread(mort_file)                                  # keeps original (spaced/%) col names
+# The file gives survival relative to four T0 denominators; rename for convenience.
+setnames(mort_all, "%_Initial Calculated", "surv_Calculated")
+setnames(mort_all, "%_Initial_Composite",  "surv_Composite")
+setnames(mort_all, "%_Initial_Average",    "surv_Average")
+setnames(mort_all, "%_Initial_Seeded",     "surv_Seeded")
+mort_all[, Treatment := factor(Treatment, levels = c("CON","CA","SE","CASE"))]
+final_data_end <- mort_all[Time > 12]                          # end timepoint (Time 24; all four spawns incl. B6)
 
-# Treatment means (block-centered) and one-way ANOVA + Tukey HSD
-final_data_end %>%
-  group_by(Treatment) %>%
-  summarise_at(vars(Survival_centered), list(~ mean(., na.rm = TRUE)))
+# PRIMARY survival for ALL statistics = the COMPOSITE denominator. Initial density is estimated
+# with sampling error (under-homogenization of near-full containers), so the composite T0 = mean of
+# the stocking (seeded) density, the jar's own calculated T0 density, and the block-mean calculated
+# T0 density — the best accuracy/error trade-off. The Calculated/Average/Seeded variants are kept
+# only for the denominator-robustness display in Fig 1.
+final_data_end[, Survival := surv_Composite]
+final_data_end[, Survival_centered := Survival - mean(Survival, na.rm = TRUE), by = Block]
+
+print(final_data_end[, .(mean_centered = mean(Survival_centered, na.rm = TRUE)), by = Treatment])
 fit <- aov(Survival_centered ~ Treatment, data = final_data_end)
-summary(fit)
-TukeyHSD(fit, "Treatment")
+print(summary(fit)); print(TukeyHSD(fit, "Treatment"))
 
-# --- Factorial CA x SE GLMM: quantify the phenotype interaction (magnitude synergy) ---
-# All four phenotyped spawns (incl. B6). Betabinomial with the per-jar assessed-larvae count as
-# the binomial denominator. NOTE: confirm the count denominator — Larvae_Counted is the per-jar
-# subsample size used to back-calculate Calculated_Larvae; swap in true stocking/survivor counts
-# here if available. The interaction term (CA1:SE1) is the "not synergistic" statistic for Fig 1.
+# --- Factorial CA x SE GLMM on the composite survival (magnitude synergy at the phenotype) ---
+# Betabinomial with the composite T0 count as the binomial denominator: survivors_i = round(p_i*N0_i),
+# N0_i = composite T0 larvae recovered per jar as 100 * Calculated(end) / composite-survival%. The
+# composite T0 count is a density estimate, so this weights jars by their estimated initial size; an
+# ordered-beta cross-check on the proportion (correct family for continuous %) is printed alongside.
 suppressMessages(library(glmmTMB))
-sd_glmm <- as.data.table(final_data_end)
+sd_glmm <- copy(final_data_end)
 sd_glmm[, CA := factor(fifelse(Treatment %in% c("CA","CASE"), "1", "0"))]
 sd_glmm[, SE := factor(fifelse(Treatment %in% c("SE","CASE"), "1", "0"))]
 sd_glmm[, Block := factor(Block)]
-sd_glmm[, p := pmin(pmax(Survival / 100, 0), 1)]
-sd_glmm[, n_assessed := pmax(round(Larvae_Counted), 1L)]
-sd_glmm[, succ := round(p * n_assessed)][, fail := n_assessed - succ]
+sd_glmm[, p := pmin(pmax(Survival / 100, 1e-4), 1 - 1e-4)]
+sd_glmm[, N0 := pmax(round(`Calculated Larvae` * 100 / Survival), 1L)]   # composite T0 count
+sd_glmm[, succ := pmin(round(p * N0), N0)][, fail := N0 - succ]
 m_bb <- glmmTMB(cbind(succ, fail) ~ CA * SE + (1 | Block), family = betabinomial, data = sd_glmm)
-cat("\n--- Factorial betabinomial GLMM: CA x SE interaction (magnitude synergy) ---\n")
+cat("\n--- Betabinomial GLMM (composite survival): CA x SE interaction ---\n")
 print(summary(m_bb)$coefficients$cond)
 surv_glmm_tab <- as.data.table(summary(m_bb)$coefficients$cond, keep.rownames = "term")
 fwrite(surv_glmm_tab, file.path(out_dir, "Fig1_survival_GLMM.csv"))
 cat(sprintf("\nInteraction CA1:SE1: beta = %.3f, p = %.3g  (n.s. => phenotype is not synergistic)\n",
-            surv_glmm_tab[term == "CA1:SE1", Estimate],
-            surv_glmm_tab[term == "CA1:SE1", `Pr(>|z|)`]))
+            surv_glmm_tab[term == "CA1:SE1", Estimate], surv_glmm_tab[term == "CA1:SE1", `Pr(>|z|)`]))
+m_ob <- tryCatch(glmmTMB(p ~ CA * SE + (1 | Block), family = ordbeta, data = sd_glmm),
+                 error = function(e) NULL)
+if (!is.null(m_ob)) { cat("\n--- ordered-beta cross-check (proportion) ---\n"); print(summary(m_ob)$coefficients$cond) }
 ```
 
 ## Fig 1 — four-spawn survival strip
 
 The PowerPoint experiment schematic is placed above this panel in the final figure.
 
-```{r fig1-survival, fig.width=14, fig.height=3.6}
-mort <- as.data.table(read.table(mort_file, sep = "\t", header = TRUE))
-mort[, Treatment := factor(Treatment, levels = treat_levels)]
-mort_end <- mort[Time > 12]
-mort_end <- mort_end[, .SD[Time == max(Time)], by = Block]
-mort_end[, Spawn := factor(paste0("B", Block), levels = paste0("B", sort(unique(Block))))]
+```{r fig1-survival, fig.width=14, fig.height=3.8}
+# End-timepoint survival under each T0 denominator, plotted with a distinct point shape so the
+# sensitivity to the initial-density estimate is visible. Box plot + mean use the COMPOSITE (the
+# value used for all statistics); the Calculated / Average / Seeded variants are overlaid as points.
+mort_end2 <- final_data_end[, .(Block, Treatment,
+  Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))),
+  Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)]
+mort_long <- melt(mort_end2, id.vars = c("Block","Treatment","Spawn"),
+                  variable.name = "Denominator", value.name = "Survival")
+mort_long[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
+denom_shapes <- c(Composite = 16, Calculated = 1, Average = 2, Seeded = 5)
 
-fig1b <- ggplot(mort_end, aes(Treatment, Survival, fill = Treatment)) +
-  geom_boxplot(notch = FALSE, outlier.colour = NA, alpha = 0.75, colour = "black", width = 0.25) +
-  stat_summary(fun = mean, geom = "point", shape = 15, size = 3, colour = "black") +
-  geom_jitter(aes(colour = Treatment), width = 0.05, height = 0, size = 2, alpha = 0.8) +
-  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols) +
+fig1b <- ggplot() +
+  geom_boxplot(data = mort_long[Denominator == "Composite"],
+               aes(Treatment, Survival, fill = Treatment),
+               notch = FALSE, outlier.colour = NA, alpha = 0.75, colour = "black", width = 0.25) +
+  stat_summary(data = mort_long[Denominator == "Composite"], aes(Treatment, Survival),
+               fun = mean, geom = "point", shape = 15, size = 3, colour = "black") +
+  geom_point(data = mort_long, aes(Treatment, Survival, colour = Treatment, shape = Denominator),
+             position = position_jitter(width = 0.14, height = 0), size = 1.9, alpha = 0.85) +
+  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
+  scale_shape_manual(values = denom_shapes, name = "T0 denominator") +
   facet_wrap(~ Spawn, nrow = 1, scales = "free_y") +
-  labs(x = NULL, y = "Percent Survival") +
+  labs(x = NULL, y = "Percent survival") +
   theme_case() +
   theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
-        legend.position = "none")
+        legend.position = "bottom")
 fig1b
 ```
 
@@ -2325,7 +2342,8 @@ fig3b <- ggplot(plt, aes(treatment, n, colour = src, group = src)) +
                          legend.key.size = unit(0.35, "cm"), plot.title.position = "plot")
 
 seq_blocks <- c(10, 11, 12)
-mc <- mort_end[Block %in% seq_blocks, .(surv = mean(Survival)), by = .(Block, Treatment)]
+# composite-denominator survival per block x treatment (final_data_end$Survival = composite)
+mc <- final_data_end[Block %in% seq_blocks, .(surv = mean(Survival)), by = .(Block, Treatment)]
 con_surv <- mc[Treatment == "CON", .(Block, con = surv)]
 mc <- merge(mc[Treatment != "CON"], con_surv, by = "Block")
 mc[, excess_mort := con - surv]
