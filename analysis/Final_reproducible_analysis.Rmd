@@ -2793,10 +2793,10 @@ print(case_only_dt[, .N, by = tier][order(-N)])
 tier_lev <- c("Core", "Convergent", "Private", "Multiple tiers", "Unclassified")
 tier_lev <- tier_lev[tier_lev %in% unique(case_only_dt$tier)]   # drop empty buckets
 
-pl_tier <- merge(pl[snp %in% case_only_snps, .(snp, x, y, n_blk)], case_only_dt, by = "snp")
+pl_tier <- merge(add_pl[SNP %in% case_only_snps, .(snp = SNP, x, y, n_blk)], case_only_dt, by = "snp")
 pl_tier[, tier := factor(tier, levels = tier_lev)]
 
-per_blk_tier <- merge(per_blk[snp %in% case_only_snps, .(snp, block, x, y)], case_only_dt, by = "snp")
+per_blk_tier <- merge(add_perblk[SNP %in% case_only_snps, .(snp = SNP, block, x, y)], case_only_dt, by = "snp")
 per_blk_tier[, tier := factor(tier, levels = tier_lev)]
 
 fitdt_tier <- pl_tier[, as.list(deming(x, y)), by = tier]
@@ -2874,7 +2874,7 @@ figS5_add
 ```
 
 ```{r hC-tier-plot, fig.width = 11, fig.height = 4.5}
-bg_tier <- rbindlist(lapply(tier_lev, function(L) { d <- pl[snp %in% bg_snps, .(x, y)]; d[, tier := L]; d }))
+bg_tier <- rbindlist(lapply(tier_lev, function(L) { d <- add_pl[SNP %in% bg_snps, .(x, y)]; d[, tier := L]; d }))
 bg_tier[, tier := factor(tier, levels = tier_lev)]
 
 ann_tier <- fitdt_tier[tier_summary, on = "tier"][
@@ -2885,7 +2885,7 @@ ggplot(mapping = aes(x, y)) +
   scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
                        low = "grey92", high = "grey55", trans = "log10") +
   geom_point(data = per_blk_tier, aes(colour = block), size = 0.6, alpha = 0.6) +
-  scale_colour_manual(name = "block", values = block_cols) +
+  scale_colour_manual(name = "block", values = spawn_cols) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
   geom_abline(data = fitdt_tier, aes(slope = slope, intercept = intercept), colour = "black",
               linewidth = 0.6) +
