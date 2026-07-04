@@ -1,0 +1,125 @@
+cluster,stress,GO,Term,Fisher,CA,SE,CASE
+Ubiquitin-proteasome / translational repression,TRUE,GO:0030371,translation repressor activity,1.7e-11,1,1,1
+Ubiquitin-proteasome / translational repression,TRUE,GO:0017148,negative regulation of translation,2.9e-10,1,1,1
+Ubiquitin-proteasome / translational repression,TRUE,GO:0000209,protein polyubiquitination,2e-09,1,1,1
+Ubiquitin-proteasome / translational repression,TRUE,GO:0043161,proteasome-mediated ubiquitin-dependent protein catabolic process,4.1e-09,1,1,1
+Ubiquitin-proteasome / translational repression,TRUE,GO:0061630,ubiquitin protein ligase activity,9.1e-09,1,1,1
+Ubiquitin-proteasome / translational repression,TRUE,GO:0008270,zinc ion binding,0.0019,1,1,0
+Other: structural constituent of ribosome,FALSE,GO:0003735,structural constituent of ribosome,9e-09,1,1,1
+Other: structural constituent of ribosome,FALSE,GO:0022625,cytosolic large ribosomal subunit,6.2e-08,0,1,1
+Other: structural constituent of ribosome,FALSE,GO:0022627,cytosolic small ribosomal subunit,4.9e-06,1,1,1
+Other: structural constituent of ribosome,FALSE,GO:0003723,RNA binding,1e-04,0,1,1
+Other: structural constituent of ribosome,FALSE,GO:0006412,translation,0.00129,1,0,1
+Other: structural constituent of ribosome,FALSE,GO:0070181,small ribosomal subunit rRNA binding,0.0057,0,1,1
+Other: structural constituent of ribosome,FALSE,GO:0002181,cytoplasmic translation,0.00988,0,1,1
+Other: structural constituent of ribosome,FALSE,GO:0000028,ribosomal small subunit assembly,0.01349,1,0,0
+Other: structural constituent of ribosome,FALSE,GO:0048027,mRNA 5'-UTR binding,0.01514,0,0,1
+Translation initiation,TRUE,GO:0003729,mRNA binding,3.1e-08,0,1,1
+Translation initiation,TRUE,GO:0003743,translation initiation factor activity,1.8e-05,0,0,1
+Translation initiation,TRUE,GO:0002188,translation reinitiation,0.00667,0,0,1
+Translation initiation,TRUE,GO:0048024,"regulation of mRNA splicing, via spliceosome",0.01017,0,1,1
+Translation initiation,TRUE,GO:0001732,formation of cytoplasmic translation initiation complex,0.01291,0,0,1
+Translation initiation,TRUE,GO:0001731,formation of translation preinitiation complex,0.04105,0,0,1
+Translation initiation,TRUE,GO:0016281,eukaryotic translation initiation factor 4F complex,0.04346,0,0,1
+Protein folding / chaperone,TRUE,GO:0051082,unfolded protein binding,4.4e-06,0,1,1
+Protein folding / chaperone,TRUE,GO:0005832,chaperonin-containing T-complex,0.00012,0,1,0
+Protein folding / chaperone,TRUE,GO:0006457,protein folding,0.00014,0,1,1
+Protein folding / chaperone,TRUE,GO:0005524,ATP binding,0.00047,0,1,1
+Protein folding / chaperone,TRUE,GO:0016887,ATPase activity,0.00055,0,1,1
+Protein folding / chaperone,TRUE,GO:0050821,protein stabilization,0.0029,0,1,0
+Protein folding / chaperone,TRUE,GO:0051959,dynein light intermediate chain binding,0.00346,1,1,1
+Protein folding / chaperone,TRUE,GO:0008569,"ATP-dependent microtubule motor activity, minus-end-directed",0.0068,1,1,1
+Protein folding / chaperone,TRUE,GO:0030433,ubiquitin-dependent ERAD pathway,0.0075,0,0,1
+Protein folding / chaperone,TRUE,GO:0030970,"retrograde protein transport, ER to cytosol",0.0106,0,1,1
+Protein folding / chaperone,TRUE,GO:0008017,microtubule binding,0.01227,0,1,1
+Protein folding / chaperone,TRUE,GO:0030286,dynein complex,0.01919,0,0,1
+Protein folding / chaperone,TRUE,GO:0007018,microtubule-based movement,0.02839,0,0,1
+Protein folding / chaperone,TRUE,GO:0005788,endoplasmic reticulum lumen,0.0313,0,1,0
+Protein folding / chaperone,TRUE,GO:0045505,dynein intermediate chain binding,0.042,1,0,1
+Other: actin filament binding,FALSE,GO:0051015,actin filament binding,0.00014,0,1,1
+Other: actin filament binding,FALSE,GO:0042995,cell projection,7e-04,0,1,1
+Other: actin filament binding,FALSE,GO:0030864,cortical actin cytoskeleton,0.00176,0,1,0
+Other: actin filament binding,FALSE,GO:0048870,cell motility,0.00323,0,0,1
+Other: actin filament binding,FALSE,GO:0030036,actin cytoskeleton organization,0.006,0,1,0
+Other: actin filament binding,FALSE,GO:0005640,nuclear outer membrane,0.00709,0,0,1
+Other: actin filament binding,FALSE,GO:0031267,small GTPase binding,0.01088,0,0,1
+Other: actin filament binding,FALSE,GO:0030042,actin filament depolymerization,0.0129,0,0,1
+Other: actin filament binding,FALSE,GO:0034993,meiotic nuclear membrane microtubule tethering complex,0.01371,0,0,1
+Other: actin filament binding,FALSE,GO:0051014,actin filament severing,0.0146,0,1,1
+Other: actin filament binding,FALSE,GO:0005635,nuclear envelope,0.01529,0,0,1
+Other: actin filament binding,FALSE,GO:0008045,motor neuron axon guidance,0.02084,0,0,1
+Other: actin filament binding,FALSE,GO:0005885,Arp2/3 protein complex,0.02552,0,1,0
+Other: actin filament binding,FALSE,GO:0030479,actin cortical patch,0.02552,0,1,0
+Other: actin filament binding,FALSE,GO:0032956,regulation of actin cytoskeleton organization,0.03021,0,0,1
+Other: actin filament binding,FALSE,GO:0051016,barbed-end actin filament capping,0.0419,0,1,0
+Acid-base / V-type ATPase,TRUE,GO:0046961,"proton-transporting ATPase activity, rotational mechanism",2e-04,1,1,1
+Acid-base / V-type ATPase,TRUE,GO:1902600,proton transmembrane transport,0.0057,1,1,1
+Acid-base / V-type ATPase,TRUE,GO:0016471,vacuolar proton-transporting V-type ATPase complex,0.00764,0,1,0
+Acid-base / V-type ATPase,TRUE,GO:0033179,"proton-transporting V-type ATPase, V0 domain",0.00764,0,1,1
+Mitochondrial calcium,TRUE,GO:0036444,calcium import into the mitochondrion,0.00042,0,0,1
+Mitochondrial calcium,TRUE,GO:1990246,uniplex complex,0.00046,0,0,1
+Mitochondrial calcium,TRUE,GO:0051560,mitochondrial calcium ion homeostasis,0.00102,0,0,1
+Cilium / ciliary motility,TRUE,GO:0001669,acrosomal vesicle,0.00051,1,0,1
+Cilium / ciliary motility,TRUE,GO:0036064,ciliary basal body,0.00063,0,1,1
+Cilium / ciliary motility,TRUE,GO:0060294,cilium movement involved in cell motility,7e-04,0,0,1
+Cilium / ciliary motility,TRUE,GO:0031514,motile cilium,0.00143,1,1,1
+Cilium / ciliary motility,TRUE,GO:0003341,cilium movement,0.00479,1,0,1
+Cilium / ciliary motility,TRUE,GO:0005929,cilium,0.00487,1,0,0
+Cilium / ciliary motility,TRUE,GO:0015630,microtubule cytoskeleton,0.00658,0,1,1
+Cilium / ciliary motility,TRUE,GO:0044458,motile cilium assembly,0.0106,0,1,0
+Cilium / ciliary motility,TRUE,GO:0060285,cilium-dependent cell motility,0.01276,0,0,1
+Cilium / ciliary motility,TRUE,GO:0045504,dynein heavy chain binding,0.021,0,0,1
+Cilium / ciliary motility,TRUE,GO:0060271,cilium assembly,0.0221,0,1,1
+Cilium / ciliary motility,TRUE,GO:0070286,axonemal dynein complex assembly,0.0247,0,1,0
+Cilium / ciliary motility,TRUE,GO:0005814,centriole,0.02522,1,0,0
+Cilium / ciliary motility,TRUE,GO:0035082,axoneme assembly,0.0265,0,0,1
+Cilium / ciliary motility,TRUE,GO:0036126,sperm flagellum,0.032,0,0,1
+Cilium / ciliary motility,TRUE,GO:0005930,axoneme,0.03667,0,0,1
+Stress granule / mRNA processing,TRUE,GO:0006376,mRNA splice site selection,0.00068,1,1,0
+Stress granule / mRNA processing,TRUE,GO:0010494,cytoplasmic stress granule,0.00074,1,0,0
+Stress granule / mRNA processing,TRUE,GO:0008143,poly(A) binding,0.00121,0,0,1
+Stress granule / mRNA processing,TRUE,GO:0003730,mRNA 3'-UTR binding,0.0014,1,0,0
+Stress granule / mRNA processing,TRUE,GO:0008266,poly(U) RNA binding,0.0048,1,0,1
+Stress granule / mRNA processing,TRUE,GO:0000381,"regulation of alternative mRNA splicing, via spliceosome",0.02019,1,0,0
+Stress granule / mRNA processing,TRUE,GO:0071004,U2-type prespliceosome,0.02375,0,0,1
+Stress granule / mRNA processing,TRUE,GO:0045727,positive regulation of translation,0.04322,1,0,0
+Other: cytoskeleton,FALSE,GO:0005856,cytoskeleton,0.00141,0,1,1
+Other: cytoskeleton,FALSE,GO:0045732,positive regulation of protein catabolic process,0.0038,0,1,0
+Other: cytoskeleton,FALSE,GO:1904491,protein localization to ciliary transition zone,0.0044,0,1,0
+Other: cytoskeleton,FALSE,GO:0016459,myosin complex,0.00891,0,0,1
+Other: cytoskeleton,FALSE,GO:0003774,motor activity,0.01108,0,0,1
+Other: cytoskeleton,FALSE,GO:0051010,microtubule plus-end binding,0.0152,0,1,0
+Other: cytoskeleton,FALSE,GO:0090090,negative regulation of canonical Wnt signaling pathway,0.01745,0,1,1
+Other: cytoskeleton,FALSE,GO:0005815,microtubule organizing center,0.03601,0,1,0
+Other: cytoskeleton,FALSE,GO:0005881,cytoplasmic microtubule,0.03741,0,1,0
+Other: cytoskeleton,FALSE,GO:0035371,microtubule plus-end,0.03755,0,1,0
+Na/K ionoregulation,TRUE,GO:0006883,cellular sodium ion homeostasis,0.00186,1,1,1
+Na/K ionoregulation,TRUE,GO:0030007,cellular potassium ion homeostasis,0.00186,1,1,1
+Na/K ionoregulation,TRUE,GO:0036376,sodium ion export across plasma membrane,0.00186,1,1,1
+Na/K ionoregulation,TRUE,GO:1990573,potassium ion import across plasma membrane,0.02019,1,0,1
+Other: cell-cell adhesion mediator activity,FALSE,GO:0098632,cell-cell adhesion mediator activity,0.00573,0,0,1
+Other: cell-cell adhesion mediator activity,FALSE,GO:0007411,axon guidance,0.01501,0,0,1
+Other: cell-cell adhesion mediator activity,FALSE,GO:0070593,dendrite self-avoidance,0.03824,0,0,1
+Other: chromatin binding,FALSE,GO:0003682,chromatin binding,0.00823,0,1,1
+Other: chromatin binding,FALSE,GO:0042393,histone binding,0.01093,0,1,0
+Other: chromatin binding,FALSE,GO:0000122,negative regulation of transcription by RNA polymerase II,0.0246,0,1,0
+Ubiquitin ligase / proteolysis,TRUE,GO:0031625,ubiquitin protein ligase binding,0.01282,0,0,1
+Ubiquitin ligase / proteolysis,TRUE,GO:0019941,modification-dependent protein catabolic process,0.03784,0,0,1
+Ubiquitin ligase / proteolysis,TRUE,GO:0030162,regulation of proteolysis,0.04133,0,0,1
+Ubiquitin ligase / proteolysis,TRUE,GO:0031386,protein tag,0.04894,0,0,1
+Other: intracellular signal transduction,FALSE,GO:0035556,intracellular signal transduction,0.0134,0,1,0
+Other: intracellular signal transduction,FALSE,GO:0004707,MAP kinase activity,0.02844,0,1,0
+Other: intracellular signal transduction,FALSE,GO:0001653,peptide receptor activity,0.04064,0,1,0
+Other: syntaxin binding,FALSE,GO:0019905,syntaxin binding,0.01485,0,1,1
+Other: syntaxin binding,FALSE,GO:0050708,regulation of protein secretion,0.0191,0,1,0
+Other: syntaxin binding,FALSE,GO:0016082,synaptic vesicle priming,0.02084,0,0,1
+Other: syntaxin binding,FALSE,GO:0031629,synaptic vesicle fusion to presynaptic active zone membrane,0.02084,0,0,1
+Steroid / progesterone metabolism,TRUE,GO:0004508,steroid 17-alpha-monooxygenase activity,0.02211,0,0,1
+Steroid / progesterone metabolism,TRUE,GO:0047442,17-alpha-hydroxyprogesterone aldolase activity,0.02211,0,0,1
+Steroid / progesterone metabolism,TRUE,GO:0042448,progesterone metabolic process,0.03027,0,0,1
+Other: protein tyrosine kinase activity,FALSE,GO:0004713,protein tyrosine kinase activity,0.025,0,0,1
+Other: protein tyrosine kinase activity,FALSE,GO:0008305,integrin complex,0.02548,1,0,0
+Other: protein tyrosine kinase activity,FALSE,GO:0033627,cell adhesion mediated by integrin,0.02801,1,0,0
+Other: protein tyrosine kinase activity,FALSE,GO:0005178,integrin binding,0.0392,1,0,0
+Other: protein tyrosine kinase activity,FALSE,GO:0007229,integrin-mediated signaling pathway,0.03997,1,0,0
+Other: protein tyrosine kinase activity,FALSE,GO:0005925,focal adhesion,0.04168,0,0,1

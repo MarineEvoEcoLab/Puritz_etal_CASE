@@ -1,0 +1,11 @@
+cluster,CA,SE,CASE,n,minF
+Ubiquitin-proteasome / translational repression,6,6,5,6,1.7e-11
+Translation initiation,0,2,7,7,3.1e-08
+Protein folding / chaperone,3,11,12,15,4.4e-06
+Acid-base / V-type ATPase,2,4,3,4,2e-04
+Mitochondrial calcium,0,0,3,3,0.00042
+Cilium / ciliary motility,5,6,12,16,0.00051
+Stress granule / mRNA processing,6,1,3,8,0.00068
+Na/K ionoregulation,4,3,4,4,0.00186
+Ubiquitin ligase / proteolysis,0,0,4,4,0.01282
+Steroid / progesterone metabolism,0,0,3,3,0.02211
