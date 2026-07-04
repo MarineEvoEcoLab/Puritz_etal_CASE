@@ -2440,16 +2440,12 @@ turnover
 ## 2.4 Assemble Fig 2 (patchwork)
 
 ```{r fig2-assemble, fig.width=15, fig.height=12}
-# Simple 3x3 grid. Row 1: A=ΔAF PCA | B=B10 PCA | C=B11 PCA
-#                  Row 2: D=B12 PCA | E=3b (counts) | F=3c (gradient)
-#                  Row 3: G=within-gene turnover (spans 2 cols) | H=collected guides
-# Plots are matched to areas in alphabetical order, so add them A,B,C,D,E,F,G, then guide_area() = H.
 design2 <- "
-AABBEE
-CCDDFF
+AABBCC
+DDEEFF
 GGGGGH
 "
-fig2 <- pca_dAF + block_pcas$B10 + block_pcas$B11 + block_pcas$B12 +
+fig2 <-  block_pcas$B10 + block_pcas$B11 + block_pcas$B12 + pca_dAF +
           fig3b + fig3c + free(turnover) + guide_area() +
           plot_layout(design = design2, guides = "collect") +   # collect legends into the H guide area
           plot_annotation(tag_levels = list(c("A","B","C","D","E","F","G",""))) &
@@ -2696,8 +2692,7 @@ add_pl[, `:=`(sCASE = SNP %in% sc_CASE, sCA = SNP %in% sc_CA, sSE = SNP %in% sc_
 
 # Panels: four mutually exclusive + two reference supersets (a locus can appear in more than one
 # of the supersets, so these are built as explicit membership lists rather than a single factor).
-add_lev <- c("CASE only", "CASE & SE", "CASE & CA", "CA & SE (no CASE)",
-             "CASE significant (all)", "CASE & SE & CA")
+add_lev <- c("CASE significant (all)","CASE only", "CASE & SE", "CASE & CA", "CASE & SE & CA","CA & SE (no CASE)")
 add_panels <- list(
   `CASE only`              = add_pl[ sCASE & !sCA & !sSE, SNP],
   `CASE & SE`               = add_pl[ sCASE &  sSE & !sCA, SNP],
@@ -2738,26 +2733,28 @@ cat(sprintf("\nGenome-wide orthogonal slope (all loci, reference): %.2f\n",
 fwrite(add_plpanel, file.path(out_dir, "Fig3_additivity_perlocus.csv"))
 fwrite(add_catsum,  file.path(out_dir, "Fig3_additivity_by_category.csv"))
 
-rng <- quantile(c(add_pl$x, add_pl$y), c(0.005, 0.995), na.rm = TRUE)
-set.seed(1); n_bg <- 10000
-bg_snps <- add_bgpool[sample.int(.N, min(n_bg, .N)), SNP]
+rng <- quantile(c(add_pl$x, add_pl$y), c(0.0001, 0.9999), na.rm = TRUE)
+#set.seed(1); n_bg <- 100000
+#bg_snps <- add_bgpool[sample.int(.N, min(n_bg, .N)), SNP]
+bg_snps <- add_bgpool[n_blk == 3, SNP]
 bg <- rbindlist(lapply(add_lev, function(L) { d <- add_pl[SNP %in% bg_snps, .(x, y)]; d[, panel := L]; d }))
 bg[, panel := factor(panel, levels = add_lev)]
 ann <- add_fitdt[add_catsum, on = "panel"][, lab := sprintf("slope %.2f\n%.0f%% above 1:1", slope, 100 * frac_supra)]
-block_cols <- c(B10 = "#0072B2", B11 = "#D55E00", B12 = "#009E73")
 
 fig3_add <- ggplot(mapping = aes(x, y)) +
-  geom_bin2d(data = bg, bins = 80) +
-  scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
+  geom_bin2d(data = bg, bins = 50) +
+  scale_fill_gradient(name = sprintf("non-outlier loci", length(bg_snps)),
                       low = "grey92", high = "grey55", trans = "log10") +
-  geom_point(data = add_perblk_panel, aes(colour = block), size = 0.6, alpha = 0.6) +
-  scale_colour_manual(name = "block", values = block_cols) +
+  geom_point(data = add_perblk_panel, aes(colour = block), size = 0.75, alpha = 0.5) +
+  scale_colour_manual(name = "block", values = spawn_cols) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
   geom_abline(data = add_fitdt, aes(slope = slope, intercept = intercept), colour = "black", linewidth = 0.6) +
   geom_text(data = ann, aes(label = lab), x = rng[1], y = rng[2], hjust = 0, vjust = 1,
             size = 3, lineheight = 0.9, inherit.aes = FALSE) +
   facet_wrap(~ panel, ncol = 3) +
   coord_equal(xlim = rng, ylim = rng) +
+  #scale_x_continuous(expand=c(0,0), limits = rng) +
+  #scale_y_continuous(expand=c(0,0), limits = rng) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
        y = "ΔAF CASE − ΔAF CON   [combined response]",
        title = "Fig 3 — Magnitude synergy: control-anchored additivity",
@@ -2772,28 +2769,93 @@ save_case(fig3_add, "Fig3_magnitude_additivity.png", width = 11, height = 7)
 Robustness of Fig 3 across the replication tiers (Core / Convergent / Private), reporting OLS
 alongside the orthogonal fit so the steeper orthogonal slope is not read as supra-additivity on
 its own (resolves the slope ~1.48 caveat). One point per locus (averaged across blocks).
+```{r hC-tier-fit}
+tier_sets_CASE <- lapply(names(tier_objs), function(ti) tier_outlier_snps(ti, "CASE"))
+names(tier_sets_CASE) <- names(tier_objs)
+
+case_only_snps <- panel_membership[["CASE only"]]
+
+tier_lookup <- rbindlist(lapply(names(tier_sets_CASE), function(ti)
+  data.table(snp = tier_sets_CASE[[ti]], tier = ti)))
+dup_snps <- tier_lookup[, .N, by = snp][N > 1, snp]
+tier_lookup[snp %in% dup_snps, tier := "Multiple tiers"]
+tier_lookup <- unique(tier_lookup, by = "snp")
+
+case_only_dt <- merge(data.table(snp = case_only_snps), tier_lookup, by = "snp", all.x = TRUE)
+case_only_dt[is.na(tier), tier := "Unclassified"]
+
+cat("CASE-only loci by tier:\n")
+print(case_only_dt[, .N, by = tier][order(-N)])
+
+tier_lev <- c("Core", "Convergent", "Private", "Multiple tiers", "Unclassified")
+tier_lev <- tier_lev[tier_lev %in% unique(case_only_dt$tier)]   # drop empty buckets
+
+pl_tier <- merge(pl[snp %in% case_only_snps, .(snp, x, y, n_blk)], case_only_dt, by = "snp")
+pl_tier[, tier := factor(tier, levels = tier_lev)]
+
+per_blk_tier <- merge(per_blk[snp %in% case_only_snps, .(snp, block, x, y)], case_only_dt, by = "snp")
+per_blk_tier[, tier := factor(tier, levels = tier_lev)]
+
+fitdt_tier <- pl_tier[, as.list(deming(x, y)), by = tier]
+tier_summary <- pl_tier[, {
+  f <- sign(y); f[f == 0] <- 1
+  .(n = .N, slope = unname(deming(x, y)["slope"]),
+    mean_excess = mean(f * y - f * x),
+    frac_supra  = mean(f * y > f * x))
+}, by = tier][order(tier)]
+print(tier_summary)
+
+fwrite(pl_tier, "./results/CASE_only_additivity_by_tier.csv")
+fwrite(tier_summary, "./results/CASE_only_additivity_tier_summary.csv")
+```
+
 
 ```{r figS5-additivity-tier, fig.width=11, fig.height=4.5}
 add_tier <- rbindlist(list(
-  data.table(SNP = core.sig$SNP,       tier = "Core"),
-  data.table(SNP = convergent.sig$SNP, tier = "Convergent"),
-  data.table(SNP = private.sig$SNP,    tier = "Private")))[!duplicated(SNP)]
+  data.table(SNP = core.sig$SNP,       tier = "Core", BLOCK = core.sig$BLOCK),
+  data.table(SNP = convergent.sig$SNP, tier = "Convergent", BLOCK = convergent.sig$BLOCK),
+  data.table(SNP = private.sig$SNP,    tier = "Private", BLOCK = private.sig$BLOCK)))[!duplicated(SNP)]
 add_pl_t <- merge(add_pl, add_tier, by = "SNP")
 add_pl_t[, tier := factor(tier, levels = c("Core","Convergent","Private"))]
 
-fit_t <- add_pl_t[, { ols <- coef(lm(y ~ x)); orth <- deming(x, y)
-  .(n = .N, ols_int = ols[1], ols_slope = ols[2],
-    orth_int = orth["intercept"], orth_slope = orth["slope"],
-    pct_above = 100 * mean(y > x), r = cor(x, y)) }, by = tier][order(tier)]
+add_pl_t <- add_pl_t[sCASE & !sCA & !sSE]
+
+add_pl_t$BLOCK <- factor(add_pl_t$BLOCK,levels = c(10, 11, 12),labels = c("B10", "B11", "B12"))
+
+
+fit_t <- add_pl_t[, {
+  ols  <- coef(lm(y ~ x))
+  orth <- deming(x, y)
+  f    <- sign(y); f[f == 0] <- 1
+  .(n = .N,
+    ols_int    = ols[1],
+    ols_slope  = ols[2],
+    orth_int   = orth["intercept"],
+    orth_slope = orth["slope"],
+    pct_supra  = 100 * mean(f * y > f * x),
+    r          = cor(x, y))
+}, by = tier][order(tier)]
 print(fit_t)
 fwrite(fit_t, file.path(supp_dir, "FigS5_additivity_by_tier.csv"))
 
-rng_t <- quantile(c(add_pl_t$x, add_pl_t$y), c(0.01, 0.99), na.rm = TRUE)
+tier_summary <- pl_tier[, {
+  f <- sign(y); f[f == 0] <- 1
+  .(n = .N, slope = unname(deming(x, y)["slope"]),
+    mean_excess = mean(f * y - f * x),
+    frac_supra  = mean(f * y > f * x))
+}, by = tier][order(tier)]
+print(tier_summary)
+
+
+rng_t <- quantile(c(add_pl_t$x, add_pl_t$y), c(0.001, 0.999), na.rm = TRUE)
 ann_t  <- fit_t[, .(tier, lab = sprintf("OLS %.2f | orth %.2f\n%.0f%% above | r=%.2f",
-                                        ols_slope, orth_slope, pct_above, r))]
+                                        ols_slope, orth_slope, pct_supra, r))]
 figS5_add <- ggplot(add_pl_t, aes(x, y)) +
-  geom_bin2d(bins = 80) +
-  scale_fill_gradient(name = "loci", low = "grey92", high = "grey45", trans = "log10") +
+  geom_bin2d(data = bg, bins = 200) +
+  geom_point(data = add_pl_t, aes(colour = BLOCK), size = 1.5, alpha = 0.5) +
+  scale_colour_manual(name = "block", values = spawn_cols) +
+  scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
+                      low = "grey92", high = "grey55", trans = "log10") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
   geom_abline(data = fit_t, aes(slope = ols_slope,  intercept = ols_int),  colour = "#D55E00") +
   geom_abline(data = fit_t, aes(slope = orth_slope, intercept = orth_int), colour = "#0072B2", linetype = "dotted") +
@@ -2806,6 +2868,33 @@ figS5_add <- ggplot(add_pl_t, aes(x, y)) +
   theme_case(12)
 save_supp(figS5_add, "FigS5_additivity_by_tier.png", width = 11, height = 4.5)
 figS5_add
+```
+
+```{r hC-tier-plot, fig.width = 11, fig.height = 4.5}
+bg_tier <- rbindlist(lapply(tier_lev, function(L) { d <- pl[snp %in% bg_snps, .(x, y)]; d[, tier := L]; d }))
+bg_tier[, tier := factor(tier, levels = tier_lev)]
+
+ann_tier <- fitdt_tier[tier_summary, on = "tier"][
+  , lab := sprintf("slope %.2f\n%.0f%% above 1:1", slope, 100 * frac_supra)]
+
+ggplot(mapping = aes(x, y)) +
+  geom_bin2d(data = bg_tier, bins = 80) +
+  scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
+                       low = "grey92", high = "grey55", trans = "log10") +
+  geom_point(data = per_blk_tier, aes(colour = block), size = 0.6, alpha = 0.6) +
+  scale_colour_manual(name = "block", values = block_cols) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
+  geom_abline(data = fitdt_tier, aes(slope = slope, intercept = intercept), colour = "black",
+              linewidth = 0.6) +
+  geom_text(data = ann_tier, aes(label = lab), x = rng[1], y = rng[2],
+            hjust = 0, vjust = 1, size = 3, lineheight = 0.9, inherit.aes = FALSE) +
+  facet_wrap(~ tier, nrow = 1) +
+  coord_equal(xlim = rng, ylim = rng) +
+  labs(x = "(dCA − dCON) + (dSE − dCON)   [additive expectation]",
+       y = "dCASE − dCON   [combined response]",
+       title = "CASE-only additivity, faceted by locus replication tier",
+       subtitle = "dashed = additive 1:1;  solid black = per-tier orthogonal fit;  grey = same 10,000-locus background;  colour = block") +
+  theme_bw()
 ```
 
 # Fig 4 — Compositional synergy (novel targets)
