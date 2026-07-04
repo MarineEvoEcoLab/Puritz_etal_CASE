@@ -2769,10 +2769,14 @@ Robustness of Fig 3 across the replication tiers (Core / Convergent / Private), 
 alongside the orthogonal fit so the steeper orthogonal slope is not read as supra-additivity on
 its own (resolves the slope ~1.48 caveat). One point per locus (averaged across blocks).
 ```{r hC-tier-fit}
+tier_objs <- list(Core = core.sig, Convergent = convergent.sig, Private = private.sig)
+tier_outlier_snps <- function(tier, trt) {
+  d <- tier_objs[[tier]]; unique(d$SNP[as.logical(d[[paste0("Sig.", trt)]])])
+}
 tier_sets_CASE <- lapply(names(tier_objs), function(ti) tier_outlier_snps(ti, "CASE"))
 names(tier_sets_CASE) <- names(tier_objs)
 
-case_only_snps <- panel_membership[["CASE only"]]
+case_only_snps <- add_panels[["CASE only"]]
 
 tier_lookup <- rbindlist(lapply(names(tier_sets_CASE), function(ti)
   data.table(snp = tier_sets_CASE[[ti]], tier = ti)))
