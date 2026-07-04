@@ -239,7 +239,32 @@ fig1 <- fig1_top / fig1b +
 fig1
 save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 9)
 ```
+### Fig S1 — Final survival across T0 denominators
 
+Sensitivity of the mortality estimate to the initial-density (T0) reference. The main figure
+(Fig 1) uses the composite denominator; here the end-timepoint survival is shown under all four
+denominators, faceted by spawn (rows) and denominator (columns), so the treatment order can be
+seen to hold regardless of the reference.
+
+```{r figS1-mortality-denominators, fig.width=12, fig.height=11}
+mort_dn <- melt(final_data_end[, .(Block,
+    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
+    Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
+  id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
+mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
+figS1mort <- ggplot(mort_dn, aes(Treatment, Survival, fill = Treatment)) +
+  geom_boxplot(outlier.colour = NA, alpha = 0.7, colour = "black", width = 0.55) +
+  geom_jitter(aes(colour = Treatment), width = 0.12, height = 0, size = 1.1, alpha = 0.7) +
+  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
+  facet_grid(Spawn ~ Denominator, scales = "free_y") +
+  labs(x = NULL, y = "Percent survival",
+       title = "Fig S1 — final survival by treatment across T0 denominators and spawns") +
+  theme_case(11) +
+  theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
+        legend.position = "none")
+save_supp(figS1mort, "FigS1_mortality_denominators.png", width = 12, height = 11)
+figS1mort
+```
 ## Larval development and size
 
 ```{r development}
@@ -282,43 +307,17 @@ Circumference <- ggplot(final_size, aes(x = Time, y = Circumference, fill = Trea
   labs(title = "Circumference") + theme_classic()
 ```
 
-### Fig S1 — Larval morphology and development (4-panel)
 
-```{r figS1-morphology, fig.width=16, fig.height=13}
-figS1 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
+
+### Fig S2 — Larval morphology and development (4-panel)
+
+```{r figS2-morphology, fig.width=16, fig.height=13}
+figS2 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
   plot_annotation(tag_levels = "A",
                   title = "Fig S1 — Larval morphology and development")
-save_supp(figS1, "FigS1_morphology.png", width = 16, height = 13)
-figS1
+save_supp(figS2, "FigS2_morphology.png", width = 16, height = 13)
+figS2
 ```
-
-### Fig S2 — Final survival across T0 denominators
-
-Sensitivity of the mortality estimate to the initial-density (T0) reference. The main figure
-(Fig 1) uses the composite denominator; here the end-timepoint survival is shown under all four
-denominators, faceted by spawn (rows) and denominator (columns), so the treatment order can be
-seen to hold regardless of the reference.
-
-```{r figS2-mortality-denominators, fig.width=12, fig.height=11}
-mort_dn <- melt(final_data_end[, .(Block,
-    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
-    Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
-  id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
-mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
-figS2mort <- ggplot(mort_dn, aes(Treatment, Survival, fill = Treatment)) +
-  geom_boxplot(outlier.colour = NA, alpha = 0.7, colour = "black", width = 0.55) +
-  geom_jitter(aes(colour = Treatment), width = 0.12, height = 0, size = 1.1, alpha = 0.7) +
-  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
-  facet_grid(Spawn ~ Denominator, scales = "free_y") +
-  labs(x = NULL, y = "Percent survival",
-       title = "Fig S2 — final survival by treatment across T0 denominators and spawns") +
-  theme_case(11) +
-  theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
-        legend.position = "none")
-save_supp(figS2mort, "FigS2_mortality_denominators.png", width = 12, height = 11)
-figS2mort
-```
-
 # Genomic data — shared substrate
 
 These steps build the allele-frequency, CMH q-value, and locus-tier objects that
