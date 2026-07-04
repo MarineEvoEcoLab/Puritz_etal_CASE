@@ -196,7 +196,7 @@ m_bb <- glmmTMB(cbind(succ, fail) ~ CA * SE + (1 | Block), family = betabinomial
 cat("\n--- Betabinomial GLMM (composite survival): CA x SE interaction ---\n")
 print(summary(m_bb)$coefficients$cond)
 surv_glmm_tab <- as.data.table(summary(m_bb)$coefficients$cond, keep.rownames = "term")
-fwrite(surv_glmm_tab, file.path(out_dir, "Fig1_survival_GLMM.csv"))
+fwrite(surv_glmm_tab, file.path(tab_dir, "Fig1_survival_GLMM.csv"))
 cat(sprintf("\nInteraction CA1:SE1: beta = %.3f, p = %.3g  (n.s. => phenotype is not synergistic)\n",
             surv_glmm_tab[term == "CA1:SE1", Estimate], surv_glmm_tab[term == "CA1:SE1", `Pr(>|z|)`]))
 m_ob <- tryCatch(glmmTMB(p ~ CA * SE + (1 | Block), family = ordbeta, data = sd_glmm),
@@ -2321,7 +2321,7 @@ tx_test <- function(trt) {
 }
 core_res <- rbindlist(lapply(c("CA","SE","CASE"), tx_test))
 core_res[, treatment := factor(treatment, levels = c("CA","SE","CASE"))]
-fwrite(core_res, file.path(out_dir, "Fig2_reproducibility_summary.csv"))
+fwrite(core_res, file.path(tab_dir, "Fig2_reproducibility_summary.csv"))
 ```
 
 ```{r fig2-3b, fig.width=8, fig.height=4}
@@ -2729,8 +2729,8 @@ add_catsum <- add_plpanel[, { f <- sign(y); f[f == 0] <- 1
 print(add_catsum)
 cat(sprintf("\nGenome-wide orthogonal slope (all loci, reference): %.2f\n",
             unname(deming(add_pl$x, add_pl$y)["slope"])))
-fwrite(add_plpanel, file.path(out_dir, "Fig3_additivity_perlocus.csv"))
-fwrite(add_catsum,  file.path(out_dir, "Fig3_additivity_by_category.csv"))
+fwrite(add_plpanel, file.path(tab_dir, "Fig3_additivity_perlocus.csv"))
+fwrite(add_catsum,  file.path(tab_dir, "Fig3_additivity_by_category.csv"))
 
 rng <- quantile(c(add_pl$x, add_pl$y), c(0.0001, 0.9999), na.rm = TRUE)
 #set.seed(1); n_bg <- 100000
@@ -2835,7 +2835,7 @@ fit_t <- add_pl_t[, {
     r          = cor(x, y))
 }, by = tier][order(tier)]
 print(fit_t)
-fwrite(fit_t, file.path(supp_dir, "FigS5_additivity_by_tier.csv"))
+fwrite(fit_t, file.path(tab_dir, "FigS5_additivity_by_tier.csv"))
 
 tier_summary <- pl_tier[, {
   f <- sign(y); f[f == 0] <- 1
@@ -3488,7 +3488,7 @@ for (blk in c("b10", "b11", "b12")) {
 he_tier_dt <- rbindlist(he_rows)
 he_tier_dt[, treatment := factor(treatment, levels = c("CA", "SE", "CASE"))]
 he_tier_dt[, tier := factor(tier, levels = c("Core", "Convergent", "Private"))]
-fwrite(he_tier_dt, file.path(out_dir, "Fig5_He_by_tier.csv"))
+fwrite(he_tier_dt, file.path(tab_dir, "Fig5_He_by_tier.csv"))
 
 y.expression <- expression(H[E])
 
@@ -3579,7 +3579,7 @@ he_null_dt[, tier := factor(tier, levels = c("Core","Convergent","Private"))]
 he_diag_dt <- rbindlist(he_diag_rows)
 he_diag_dt[, treatment := factor(treatment, levels = c("CA","SE","CASE"))]
 he_diag_dt[, tier := factor(tier, levels = c("Core","Convergent","Private"))]
-fwrite(he_null_dt, file.path(out_dir, "Fig5_He_matched_null.csv"))
+fwrite(he_null_dt, file.path(tab_dir, "Fig5_He_matched_null.csv"))
 print(he_null_dt)
 
 # overlay the matched-null band (2.5-97.5%) and z on the observed He panel (rebuilds fig4_he_panel)
