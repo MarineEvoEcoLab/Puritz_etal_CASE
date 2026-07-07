@@ -1180,7 +1180,17 @@ singleton   <- read.table("singleton.loci",         header = TRUE)
 sing.lowvar <- read.table("singleton.loci.lowvar",  header = TRUE)
 sing.lowcov <- read.table("singleton.loci.lowcov",  header = TRUE)
 
-Priv_all       <- rbind(ppsig.B10, ppsig.B11, ppsig.B12)
+# Attribute each private locus to a single stressor before combining, mirroring
+# the Core and Convergent tiers: subset per treatment and zero the other Sig.*
+# flags via apply_treatment_filter so each row carries a single-stressor signal.
+# Private loci are singletons and so are not required to replicate across blocks
+# (no n() filter), but the per-treatment attribution is applied for consistency.
+Priv_pooled    <- rbind(ppsig.B10, ppsig.B11, ppsig.B12)
+Priv_all       <- bind_rows(
+  subset(Priv_pooled, Sig.CA   == TRUE) %>% apply_treatment_filter("Sig.CA"),
+  subset(Priv_pooled, Sig.CASE == TRUE) %>% apply_treatment_filter("Sig.CASE"),
+  subset(Priv_pooled, Sig.SE   == TRUE) %>% apply_treatment_filter("Sig.SE")
+)
 ppsig1.s        <- semi_join(Priv_all, singleton,   by = "SNP")
 ppsig1.s.lowvar <- semi_join(Priv_all, sing.lowvar, by = "SNP")
 ppsig1.s.lowcov <- semi_join(Priv_all, sing.lowcov, by = "SNP")
