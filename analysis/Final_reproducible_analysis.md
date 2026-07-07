@@ -1,7 +1,7 @@
 CASE — Reproducible Analysis (Coastal Acidification & Sewage Effluent)
 ================
 Jonathan Puritz
-2026-07-04
+2026-07-07
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -1575,7 +1575,17 @@ singleton   <- read.table("singleton.loci",         header = TRUE)
 sing.lowvar <- read.table("singleton.loci.lowvar",  header = TRUE)
 sing.lowcov <- read.table("singleton.loci.lowcov",  header = TRUE)
 
-Priv_all       <- rbind(ppsig.B10, ppsig.B11, ppsig.B12)
+# Attribute each private locus to a single stressor before combining, mirroring
+# the Core and Convergent tiers: subset per treatment and zero the other Sig.*
+# flags via apply_treatment_filter so each row carries a single-stressor signal.
+# Private loci are singletons and so are not required to replicate across blocks
+# (no n() filter), but the per-treatment attribution is applied for consistency.
+Priv_pooled    <- rbind(ppsig.B10, ppsig.B11, ppsig.B12)
+Priv_all       <- bind_rows(
+  subset(Priv_pooled, Sig.CA   == TRUE) %>% apply_treatment_filter("Sig.CA"),
+  subset(Priv_pooled, Sig.CASE == TRUE) %>% apply_treatment_filter("Sig.CASE"),
+  subset(Priv_pooled, Sig.SE   == TRUE) %>% apply_treatment_filter("Sig.SE")
+)
 ppsig1.s        <- semi_join(Priv_all, singleton,   by = "SNP")
 ppsig1.s.lowvar <- semi_join(Priv_all, sing.lowvar, by = "SNP")
 ppsig1.s.lowcov <- semi_join(Priv_all, sing.lowcov, by = "SNP")
@@ -7771,7 +7781,7 @@ print(tabS1)
     ##         Tier  CA   SE CASE Total
     ## 1       Core 662 1661 2989  5312
     ## 2 Convergent  62  166  812  1040
-    ## 3    Private 233  249  639   972
+    ## 3    Private 233  249  639  1121
 
 ``` r
 # Table S2 — full significant-loci table (tier + treatment flags)
