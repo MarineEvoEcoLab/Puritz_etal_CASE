@@ -79,7 +79,7 @@ conda activate CASE
 rmarkdown::render("analysis/Final_reproducible_analysis.Rmd")
 ```
 
-Required R packages: `ggplot2`, `tidyr`, `plyr`, `dplyr`, `qvalue`, `stringr`, `pcadapt`, `poolSeq`, `ACER`, `scales`, `data.table`, `patchwork`, `ggridges`, `ggrain`, `ggman`, `VennDiagram`, `topGO`, `kableExtra`. Figures are written to `figures/main/` and `figures/supp/`; tables to `results/tables/`.
+Required R packages: `ggplot2`, `tidyr`, `plyr`, `dplyr`, `qvalue`, `stringr`, `pcadapt`, `poolSeq`, `ACER`, `scales`, `data.table`, `patchwork`, `ggridges`, `ggrain`, `grid`, `ggman`, `VennDiagram`, `topGO`, `kableExtra`, `glmmTMB`, and `igraph`. `png` is also required (called via `png::readPNG` when assembling figure panels). Figures are written to `figures/main/` and `figures/supp/`; tables to `results/tables/`.
 
 > Raw sequencing reads and large intermediate files are not tracked in this repository. Add a data-availability note (e.g., NCBI SRA/BioProject accession) here once deposited.
 
