@@ -325,6 +325,7 @@ tools (bcftools, popoolation2, bedtools, dDocent) are kept as `eval=FALSE`.
 ## Filtering
 ```{bash, eval=FALSE}
 source activate CASE
+# Primary VCF filter: quality / depth (dp20) / genotype call-rate filtering of the raw combined VCF.
 cd ../raw.vcf
 bash ../scripts/CASE_PVCF_filter2.sh CASE 64 20
 ```
@@ -332,6 +333,7 @@ bash ../scripts/CASE_PVCF_filter2.sh CASE 64 20
 
 ```{bash, eval=FALSE}
 source activate CASE
+# Index the filtered VCF and write out its sample list.
 cd ../raw.vcf 
 bcftools index CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz
 bcftools query -l CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz > samples
@@ -344,6 +346,9 @@ Each block was filtered for missing data less than 10% and MAF of > 0.015 based 
 
 ```{bash, eval=FALSE}
 source activate CASE
+# Per-block sample selection + filtering: drop the extra run samples, require <10% missing data and
+# biallelic sites with 0.015 < AAF < 0.985, and write each block's retained positions (B1x.pos).
+# The union of block positions defines the final multi-block VCF (SNP.CASE...perp.vcf.gz).
 
 cd ../raw.vcf
 bcftools view -S <(grep B11 samples | grep -v 1.G) CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz | bcftools view -i 'F_MISSING<0.1'  | bcftools view -M 4 -m 2 | bcftools +fill-tags -- -t 'AAF:1=sum(FORMAT/AO)/sum(FORMAT/DP)' | bcftools +fill-tags -- -t  FORMAT/VAF | bcftools view --threads 40 -i 'AAF > 0.015 && AAF < 0.985' | bcftools query -f '%CHROM\t%POS\n' > B11.pos
@@ -361,6 +366,7 @@ bcftools view -R fil.pos -S <(grep -v 1.GB11 samples | grep -v J17B10| grep -v J
 #### Create Sync files
 ```{bash, eval=FALSE}
 source activate CASE
+# Convert the filtered VCF to a PoPoolation2 sync file (mask fully-missing genotypes first).
 
 bcftools view --threads 40 ../raw.vcf/SNP.CASE.TRSdp.20.B90.2a.perp.vcf.gz  | mawk -F'\t' -v OFS='\t' '{ for(i=1;i<=NF;i++) if($i==".:.:.:.:.:.:.:.") $i="."; print }' > temp.vcf
 python2 ../scripts/VCFtoPopPool.py temp.vcf CASE.All.Blocks.sync 
@@ -369,6 +375,7 @@ rm temp.vcf
 
 #### This sort is to maintain reproducibility across older analysis
 ```{bash}
+# Reorder the sync to a fixed chromosome order (chr10 / NC_035789 first) to match the original analysis.
 mawk 'BEGIN {OFS="\t"
     order["CHROM"] = 0
     order["NC_035789.1"] = 1
@@ -389,6 +396,7 @@ mv test.sync CASE.All.Blocks.sync
 
 
 ```{bash}
+# Split the all-blocks sync into per-block sync files: keep each block's columns and drop loci absent in that block.
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B10.pos > B10.pos
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B11.pos > B11.pos
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B12.pos > B12.pos
@@ -402,6 +410,8 @@ mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' B12.pos CASE.All.Blocks.sync | mawk 
 
 ```{bash, eval=FALSE}
 source activate CASE
+# Append coverage columns (add_cov_sync) and filter each block to min depth (>9) and coverage (>24);
+# collect loci covered in all three blocks (filtered.loci.allthreeblocks) vs singletons (<2 blocks).
 mawk -f ../scripts/add_cov_sync CASE.Block10.sync | mawk '$20 > 9 && $22 > 24' > CASE.dp20.Block10.cov.sync &
 mawk -f ../scripts/add_cov_sync CASE.Block11.sync | mawk '$24 > 9 && $26 > 24' > CASE.dp20.Block11.cov.sync &
 mawk -f ../scripts/add_cov_sync CASE.Block12.sync | mawk '$24 > 9 && $26 > 24' > CASE.dp20.Block12.cov.sync &
@@ -419,6 +429,7 @@ Used for the genome-wide PCA (Fig S3).
 
 ```{bash, eval = FALSE}
 source activate CASE
+# Draw 10,000 random covered loci as the genome-wide (neutral) background set for the PCA.
 
 mawk '!/CHR/' filtered.loci.allthreeblocks | shuf -n 50000  | shuf -n 10000 > rand.loci
 
@@ -487,6 +498,8 @@ dev.off()
 ## Differentiate Singleton Loci
 ```{bash}
 source activate CASE
+# Classify singleton loci: near-fixed in the absent block despite adequate depth (low_variation)
+# vs genuine low_coverage dropout.
 
 tail -n +2 singleton.loci | awk '{
   match($1, /_[0-9]+$/)
@@ -557,6 +570,10 @@ awk 'NR==1 || $8=="low_coverage"  {print $1}' singleton.loci.classified.txt > si
 #### B10
 ```{bash, eval=FALSE}
 source activate CASE
+# B10 initial-sample (IS / T0) pool: sum the 4 IS columns into one T0 pool and triplicate it to match
+# the 3 treatment replicates. AV_COV = mean per-pool coverage of the treatment columns; keep IS
+# positions at/above AV_COV and cap each treatment pool's depth at the IS depth so T0 can be
+# subsampled down to it (CASE.dp20.Block10.COV).
 
 bash ../scripts/sum.sh <(cut -f1,2,3,13-16 CASE.dp20.Block10.cov.sync) > CASE.B10.IS.sync
 paste CASE.B10.IS.sync <(cut -f4 CASE.B10.IS.sync) <(cut -f4 CASE.B10.IS.sync)  > CASE.B10.ISsum3.sync
@@ -582,6 +599,8 @@ paste temp.cov <(cut -f7 CASE.B10.ISsum3nh.cov.sync) | mawk -v OFS='\t' '{if ($1
 
 ```{bash, eval=FALSE}
 source activate random_draw
+# Subsample the IS pool to 3 coverage-matched pseudo-replicates (IS_RS1-3), then pair IS (gen 0)
+# with each treatment's post-exposure counts (gen 1) as 3-replicate CMH inputs (CA/CASE/SE/CON.B10.input).
 
 
 python ../scripts/sub_sample.py CASE.B10.ISsum3nh.cov.sync CASE.B10.ISsum3nh.sync CASE.B10.ISs.sync
@@ -614,6 +633,9 @@ tail -n +2 CON.B10.sync | mawk '!/0:0:0:0:0:0/' > CON.B10.input
 
 #### B11
 ```{bash, eval=FALSE}
+# B11 (4 treatment replicates): build the IS/T0 pool (sum 4 IS cols, replicate x4), coverage-match and
+# cap treatment depth at IS depth, subsample IS to 4 pseudo-reps, then pair IS (gen 0) with each
+# treatment's post counts (gen 1) -> CA/CASE/SE/CON.B11.input for the CMH test.
 AV_COV=$(mawk -f ../scripts/add_cov_sync <(cut -f16-19 --complement CASE.dp20.Block11.cov.sync) | mawk '{sum=sum+$22} END {print sum/NR}')
 
 echo $AV_COV
@@ -662,6 +684,8 @@ tail -n +2 CON.B11.sync > CON.B11.input
 
 ```{bash, eval=FALSE}
 source activate CASE
+# B12 initial-sample (IS/T0) pool (4 treatment replicates): sum the 4 IS columns, replicate x4,
+# coverage-match and cap each treatment pool's depth at the IS depth (CASE.dp20.Block12.COV).
 
 bash ../scripts/sum.sh <(cut -f1,2,3,16-19 CASE.dp20.Block12.cov.sync) > CASE.B12.IS.sync
 paste CASE.B12.IS.sync <(cut -f4 CASE.B12.IS.sync) <(cut -f4 CASE.B12.IS.sync) <(cut -f4 CASE.B12.IS.sync) > CASE.B12.ISsum4.sync
@@ -690,6 +714,8 @@ rm temp.cov.sync
 
 ```{bash, eval=FALSE}
 source activate random_draw
+# Subsample the B12 IS pool to 4 pseudo-replicates and pair IS (gen 0) with each treatment's post
+# counts (gen 1) -> CA/CASE/SE/CON.B12.input.
 
 python ../scripts/sub_sample.py CASE.B12.ISsum4nh.cov.sync CASE.B12.ISsum4nh.sync CASE.B12.ISs.sync
 
@@ -874,6 +900,10 @@ B12.pval.table$PVAL <- as.numeric(B12.pval.table$PVAL)
 #### Create sync file
 ```{bash, eval=FALSE}
 source activate CASE
+# Across-blocks (AB) pooled analysis. Rebuild each block's IS/T0 pool from the combined sync (IS
+# columns 37-48), keep loci with IS coverage >72 in every block and at least one pool covered, build
+# per-block coverage subsets, replicate each IS pool to its treatment-rep count, and cap treatment
+# depth at IS depth (B1x.AB.cov.sync).
 
 head -1 CASE.All.Blocks.cov.sync > h.temp
 tail -n +2 CASE.All.Blocks.cov.sync | sort -k1,1 -k2,2n > b.temp
@@ -929,12 +959,16 @@ rm temp.cov.sync
 
 ```{bash, eval=FALSE}
 source activate random_draw
+# Subsample each block's AB IS pool to coverage-matched pseudo-replicates.
 python ../scripts/sub_sample.py CASE.B10.AB.ISsum3.cov.sync <( mawk '!/CHR/' CASE.B10.AB.ISsum3.sync) CASE.B10.ISs.AB.sync
 python ../scripts/sub_sample.py CASE.B11.AB.ISsum4.cov.sync <( mawk '!/CHR/' CASE.B11.AB.ISsum4.sync) CASE.B11.ISs.AB.sync
 python ../scripts/sub_sample.py CASE.B12.AB.ISsum4.cov.sync <(mawk '!/CHR/' CASE.B12.AB.ISsum4.sync) CASE.B12.ISs.AB.sync
 ```
 
 ```{bash}
+# Assemble the pooled across-blocks CMH inputs: interleave every spawn's IS (gen 0) and treatment
+# (gen 1) columns into one sync per treatment (CA/CASE/SE/CON.AB.input). A few known artifact
+# positions are dropped by POS.
 cat <(echo -e "CHROM\tPOS\tREF\tISB11_RS1\tISB11_RS2\tISB11_RS3\tISB11_RS4") CASE.B11.ISs.AB.sync > CASE.B11.ISsum.AB.sync
 cat <(echo -e "CHROM\tPOS\tREF\tISB10_RS1\tISB10_RS2\tISB10_RS3\tISB10_RS4") CASE.B10.ISs.AB.sync > CASE.B10.ISsum.AB.sync
 cat <(echo -e "CHROM\tPOS\tREF\tISB12_RS1\tISB12_RS2\tISB12_RS3\tISB12_RS4") CASE.B12.ISs.AB.sync > CASE.B12.ISsum.AB.sync
@@ -1238,6 +1272,8 @@ write.table(private.sig, "Sig.Loci.Private", sep = "\t", row.names = FALSE, quot
 ### Proximity Control Loci filter
 ```{bash}
 source activate CASE
+# Proximity/CON control filter: map the control-outlier SNPs (ALL.CON.SNPS) to gene regions and
+# flag any total-outlier loci falling in those CON-associated genes for removal.
 
 cut -f2,3 Total.Significant.uf.Loci | tail -n +2 | sort -k1,2 | uniq | mawk '{print $1 "\t" $2-1 "\t" $2}' | bedtools sort -i - > CASE.Total.Significant.uf.loci.bed
 
@@ -1275,6 +1311,7 @@ write.table(totalsig.CASE, "sig.case", sep="\t", row.names = FALSE, quote = FALS
 ```
 
 ```{bash}
+# Tag total outliers by treatment group (SE / CA / Both) for the group colouring in plots.
 cat <(echo -e "SNP\tGroup") <(mawk '{if (NR > 1) print $1"\tSE"}' sig.se ) <(mawk '{if (NR > 1) print $1"\tCA"}' sig.ca ) <(mawk '{if (NR > 1) print $1"\tBoth"}' sig.both ) > sig.table
 ```
 
@@ -1385,6 +1422,7 @@ done
 
 ```{bash}
 source activate CASE
+# Total significant loci -> BED, +/-100 bp merged intervals, and the gene (LOC) list they hit.
 
 cut -f2,3 Total.Significant.Loci | tail -n +2 | sort -k1,2 | uniq | mawk '{print $1 "\t" $2-1 "\t" $2}' | bedtools sort -i - > CASE.Total.Significant.loci.bed
 bedtools slop -b 100 -i CASE.Total.Significant.loci.bed  -g ../reference.fasta.fai  | bedtools merge -i - >  CASE.Total.Significant.loci.intervals.bed
@@ -1397,6 +1435,8 @@ bedtools intersect -wb -a CASE.Total.Significant.loci.bed -b ~/CASE/analysis/sor
 
 ```{bash}
 source activate CASE
+# Per-treatment and pairwise significant loci -> gene (LOC) lists (CA / SE / CASE and their overlaps),
+# using the Sig.CASE / Sig.CA / Sig.SE flag columns of Total.Significant(.Grouped).Loci.
 
 mawk '$14 == "TRUE" ' Total.Significant.Loci | sort -k1,2 | mawk '{print $2 "\t" $3-1 "\t" $3}' | uniq  > CA.Significant.loci.bed
 bedtools intersect -wb -a CA.Significant.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.1.CA.LOC
@@ -1432,6 +1472,7 @@ cat SE.ONLY.Significant.loci.bed SE.CASE.Significant.loci.bed| sort | uniq  > SE
 
 ```{bash}
 source activate CASE
+# Per-block (B10/B11/B12) per-treatment significant loci -> gene (LOC) lists, from the q<0.01 per-block sets.
 
 
 # B10
@@ -1610,6 +1651,7 @@ Pairwise and triple gene-list intersections used by the combined SNP/gene Venn.
 
 ```{bash}
 source activate CASE
+# Pairwise and triple gene-list intersections (genes shared by >=2 treatments) for the SNP/gene Venn.
 cat Sig.loci.1.CA.LOC Sig.loci.1.SE.LOC   | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.CA.SE.LOC
 cat Sig.loci.1.CA.LOC Sig.loci.1.CASE.LOC | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.CA.CASE.LOC
 cat Sig.loci.1.SE.LOC Sig.loci.1.CASE.LOC | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.SE.CASE.LOC
@@ -1622,6 +1664,7 @@ cat Sig.loci.1.SE.LOC Sig.loci.1.CASE.LOC Sig.loci.1.CA.LOC | sort | uniq -c | m
 
 ```{bash, eval=FALSE}
 source activate CASE
+# Download the C. virginica GO annotation (GAF) from NCBI.
 mkdir -p ./GO
 cd ./GO
 
@@ -1637,6 +1680,7 @@ mv GCF_002022765.2_C_virginica-3.0_gene_ontology.gaf gene_ontology.gaf
 Making a tab file with gene ID and GO IDs. Each gene has one row with all associated GO terms separated by semicolons.
 
 ```{bash, eval=FALSE}
+# Build the gene -> GO map: one row per gene with all its GO IDs joined by ';' (gene2go_full.tab).
 cd ./GO
 
 awk 'NR>9 {print $3 "\t" $5}' gene_ontology.gaf | 
