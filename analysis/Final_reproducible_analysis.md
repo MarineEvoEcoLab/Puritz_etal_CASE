@@ -1,7 +1,7 @@
 CASE — Reproducible Analysis (Coastal Acidification & Sewage Effluent)
 ================
 Jonathan Puritz
-2026-07-07
+2026-07-10
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -159,8 +159,10 @@ library(ggman)
 library(VennDiagram)
 library(topGO)
 library(kableExtra)
+library(glmmTMB)
+library(igraph)
 
-# ---- output directories -----------------------------------------------------
+# output directories
 out_dir  <- "figures/main"
 supp_dir <- "figures/supp"
 tab_dir  <- "results/tables"
@@ -179,7 +181,7 @@ save_supp <- function(plot, file, width = 10, height = 6, res = 300) {
   print(plot); invisible(dev.off())
 }
 
-# ---- palettes (Okabe-Ito; CON/CA/SE/CASE order) -----------------------------
+# palettes (Okabe-Ito; CON/CA/SE/CASE order)
 treat_levels <- c("CON","CA","SE","CASE")
 treat_cols   <- c(CON="#999999", CA="#E69F00", SE="#0072B2", CASE="#009E73", IS="sky blue")
 cbPalette        <- c("#0072B2","#56B4E9","#D55E00","#E69F00","#009E73","#999999","#F0E442","#CC79A7")
@@ -204,9 +206,8 @@ theme_case <- function(base_size = 16) {
           legend.text  = element_text(size = base_size * 0.8 + 2))
 }
 
-# ---- shared helper functions ------------------------------------------------
-# Convert per-treatment CMH p-values to q-values (pi0 = 1 => Benjamini-Hochberg)
-# and relabel chromosomes 1-10 from their RefSeq accessions.
+# shared helper functions
+# CMH p-values to q-values (pi0 = 1 => Benjamini-Hochberg); relabel chroms 1-10 from RefSeq accessions
 Qvalue_convert <- function(table) {
   table <- spread(table, GROUP, PVAL)
   table$CHR <- table$CHROM
@@ -277,11 +278,10 @@ setnames(mort_all, "%_Initial_Seeded",     "surv_Seeded")
 mort_all[, Treatment := factor(Treatment, levels = c("CON","CA","SE","CASE"))]
 final_data_end <- mort_all[Time > 12]                          # end timepoint (Time 24; all four spawns incl. B6)
 
-# PRIMARY survival for ALL statistics = the COMPOSITE denominator. Initial density is estimated
-# with sampling error (under-homogenization of near-full containers), so the composite T0 = mean of
-# the stocking (seeded) density, the jar's own calculated T0 density, and the block-mean calculated
-# T0 density — the best accuracy/error trade-off. The Calculated/Average/Seeded variants are kept
-# only for the denominator-robustness display in Fig 1.
+# All stats use the composite denominator: composite T0 = mean of seeded density, the jar's own
+# calculated T0, and the block-mean calculated T0 (best accuracy/error trade-off vs. sampling error
+# from under-homogenized near-full containers). Calculated/Average/Seeded kept only for the
+# denominator-robustness display in Fig 1.
 final_data_end[, Survival := surv_Composite]
 final_data_end[, Survival_centered := Survival - mean(Survival, na.rm = TRUE), by = Block]
 
@@ -321,12 +321,10 @@ print(summary(fit)); print(TukeyHSD(fit, "Treatment"))
     ## CASE-SE   -0.5915734 -11.69823 10.515084 0.9989579
 
 ``` r
-# --- Factorial CA x SE GLMM on the composite survival (magnitude synergy at the phenotype) ---
-# Betabinomial with the composite T0 count as the binomial denominator: survivors_i = round(p_i*N0_i),
-# N0_i = composite T0 larvae recovered per jar as 100 * Calculated(end) / composite-survival%. The
-# composite T0 count is a density estimate, so this weights jars by their estimated initial size; an
-# ordered-beta cross-check on the proportion (correct family for continuous %) is printed alongside.
-suppressMessages(library(glmmTMB))
+# Factorial CA x SE GLMM on composite survival (magnitude synergy at the phenotype).
+# Betabinomial with composite T0 count as the binomial denominator (N0 = 100 * Calculated(end) /
+# composite-survival%), so jars are weighted by estimated initial size. Ordered-beta cross-check on
+# the proportion printed alongside.
 sd_glmm <- copy(final_data_end)
 sd_glmm[, CA := factor(fifelse(Treatment %in% c("CA","CASE"), "1", "0"))]
 sd_glmm[, SE := factor(fifelse(Treatment %in% c("SE","CASE"), "1", "0"))]
@@ -401,7 +399,7 @@ fig1_top <- patchwork::wrap_elements(full = grid::rasterGrob(fig1_top_png, inter
 
 fig1 <- fig1_top / fig1b +
   plot_layout(heights = c(1, 0.6)) 
-  #plot_annotation(tag_levels = "A")
+  # plot_annotation(tag_levels = "A")
 fig1
 ```
 
@@ -504,12 +502,14 @@ dDocent) are kept as `eval=FALSE`.
 
 ``` bash
 source activate CASE
+# Primary VCF filter: quality / depth (dp20) / genotype call-rate filtering of the raw combined VCF.
 cd ../raw.vcf
 bash ../scripts/CASE_PVCF_filter2.sh CASE 64 20
 ```
 
 ``` bash
 source activate CASE
+# Index the filtered VCF and write out its sample list.
 cd ../raw.vcf 
 bcftools index CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz
 bcftools query -l CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz > samples
@@ -524,6 +524,9 @@ first.
 
 ``` bash
 source activate CASE
+# Per-block sample selection + filtering: drop the extra run samples, require <10% missing data and
+# biallelic sites with 0.015 < AAF < 0.985, and write each block's retained positions (B1x.pos).
+# The union of block positions defines the final multi-block VCF (SNP.CASE...perp.vcf.gz).
 
 cd ../raw.vcf
 bcftools view -S <(grep B11 samples | grep -v 1.G) CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz | bcftools view -i 'F_MISSING<0.1'  | bcftools view -M 4 -m 2 | bcftools +fill-tags -- -t 'AAF:1=sum(FORMAT/AO)/sum(FORMAT/DP)' | bcftools +fill-tags -- -t  FORMAT/VAF | bcftools view --threads 40 -i 'AAF > 0.015 && AAF < 0.985' | bcftools query -f '%CHROM\t%POS\n' > B11.pos
@@ -541,6 +544,7 @@ bcftools view -R fil.pos -S <(grep -v 1.GB11 samples | grep -v J17B10| grep -v J
 
 ``` bash
 source activate CASE
+# Convert the filtered VCF to a PoPoolation2 sync file (mask fully-missing genotypes first).
 
 bcftools view --threads 40 ../raw.vcf/SNP.CASE.TRSdp.20.B90.2a.perp.vcf.gz  | mawk -F'\t' -v OFS='\t' '{ for(i=1;i<=NF;i++) if($i==".:.:.:.:.:.:.:.") $i="."; print }' > temp.vcf
 python2 ../scripts/VCFtoPopPool.py temp.vcf CASE.All.Blocks.sync 
@@ -550,6 +554,7 @@ rm temp.vcf
 #### This sort is to maintain reproducibility across older analysis
 
 ``` bash
+# Reorder the sync to a fixed chromosome order (chr10 / NC_035789 first) to match the original analysis.
 mawk 'BEGIN {OFS="\t"
     order["CHROM"] = 0
     order["NC_035789.1"] = 1
@@ -569,6 +574,7 @@ mv test.sync CASE.All.Blocks.sync
 ```
 
 ``` bash
+# Split the all-blocks sync into per-block sync files: keep each block's columns and drop loci absent in that block.
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B10.pos > B10.pos
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B11.pos > B11.pos
 cat <(echo -e "CHROM\tPOS") ../raw.vcf/B12.pos > B12.pos
@@ -582,10 +588,12 @@ mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' B12.pos CASE.All.Blocks.sync | mawk 
 
 ``` bash
 source activate CASE
+# Append coverage columns (add_cov_sync) and filter each block to min depth (>9) and coverage (>24);
+# collect loci covered in all three blocks (filtered.loci.allthreeblocks) vs singletons (<2 blocks).
 mawk -f ../scripts/add_cov_sync CASE.Block10.sync | mawk '$20 > 9 && $22 > 24' > CASE.dp20.Block10.cov.sync &
 mawk -f ../scripts/add_cov_sync CASE.Block11.sync | mawk '$24 > 9 && $26 > 24' > CASE.dp20.Block11.cov.sync &
 mawk -f ../scripts/add_cov_sync CASE.Block12.sync | mawk '$24 > 9 && $26 > 24' > CASE.dp20.Block12.cov.sync &
-#mawk -f ../scripts/add_cov_sync CASE.All.Blocks.sync | mawk '$66 > 9 && $68 > 24' > CASE.All.Blocks.cov.sync
+# mawk -f ../scripts/add_cov_sync CASE.All.Blocks.sync | mawk '$66 > 9 && $68 > 24' > CASE.All.Blocks.cov.sync
 mawk -f ../scripts/add_cov_sync CASE.All.Blocks.sync | mawk '$60 > 9 && $62 > 24' | mawk '!/\t\.\t/'  > CASE.All.Blocks.cov.sync
 
 cut -f1,2 CASE.dp20.Block1*.cov.sync | sort | uniq -c | mawk '$1 > 2' | mawk '{print $2 "\t" $3}' > filtered.loci.allthreeblocks
@@ -599,6 +607,7 @@ Used for the genome-wide PCA (Fig S3).
 
 ``` bash
 source activate CASE
+# Draw 10,000 random covered loci as the genome-wide (neutral) background set for the PCA.
 
 mawk '!/CHR/' filtered.loci.allthreeblocks | shuf -n 50000  | shuf -n 10000 > rand.loci
 
@@ -679,6 +688,8 @@ dev.off()
 
 ``` bash
 source activate CASE
+# Classify singleton loci: near-fixed in the absent block despite adequate depth (low_variation)
+# vs genuine low_coverage dropout.
 
 tail -n +2 singleton.loci | awk '{
   match($1, /_[0-9]+$/)
@@ -757,6 +768,10 @@ awk 'NR==1 || $8=="low_coverage"  {print $1}' singleton.loci.classified.txt > si
 
 ``` bash
 source activate CASE
+# B10 initial-sample (IS / T0) pool: sum the 4 IS columns into one T0 pool and triplicate it to match
+# the 3 treatment replicates. AV_COV = mean per-pool coverage of the treatment columns; keep IS
+# positions at/above AV_COV and cap each treatment pool's depth at the IS depth so T0 can be
+# subsampled down to it (CASE.dp20.Block10.COV).
 
 bash ../scripts/sum.sh <(cut -f1,2,3,13-16 CASE.dp20.Block10.cov.sync) > CASE.B10.IS.sync
 paste CASE.B10.IS.sync <(cut -f4 CASE.B10.IS.sync) <(cut -f4 CASE.B10.IS.sync)  > CASE.B10.ISsum3.sync
@@ -782,6 +797,8 @@ paste temp.cov <(cut -f7 CASE.B10.ISsum3nh.cov.sync) | mawk -v OFS='\t' '{if ($1
 
 ``` bash
 source activate random_draw
+# Subsample the IS pool to 3 coverage-matched pseudo-replicates (IS_RS1-3), then pair IS (gen 0)
+# with each treatment's post-exposure counts (gen 1) as 3-replicate CMH inputs (CA/CASE/SE/CON.B10.input).
 
 
 python ../scripts/sub_sample.py CASE.B10.ISsum3nh.cov.sync CASE.B10.ISsum3nh.sync CASE.B10.ISs.sync
@@ -815,6 +832,9 @@ tail -n +2 CON.B10.sync | mawk '!/0:0:0:0:0:0/' > CON.B10.input
 #### B11
 
 ``` bash
+# B11 (4 treatment replicates): build the IS/T0 pool (sum 4 IS cols, replicate x4), coverage-match and
+# cap treatment depth at IS depth, subsample IS to 4 pseudo-reps, then pair IS (gen 0) with each
+# treatment's post counts (gen 1) -> CA/CASE/SE/CON.B11.input for the CMH test.
 AV_COV=$(mawk -f ../scripts/add_cov_sync <(cut -f16-19 --complement CASE.dp20.Block11.cov.sync) | mawk '{sum=sum+$22} END {print sum/NR}')
 
 echo $AV_COV
@@ -863,6 +883,8 @@ tail -n +2 CON.B11.sync > CON.B11.input
 
 ``` bash
 source activate CASE
+# B12 initial-sample (IS/T0) pool (4 treatment replicates): sum the 4 IS columns, replicate x4,
+# coverage-match and cap each treatment pool's depth at the IS depth (CASE.dp20.Block12.COV).
 
 bash ../scripts/sum.sh <(cut -f1,2,3,16-19 CASE.dp20.Block12.cov.sync) > CASE.B12.IS.sync
 paste CASE.B12.IS.sync <(cut -f4 CASE.B12.IS.sync) <(cut -f4 CASE.B12.IS.sync) <(cut -f4 CASE.B12.IS.sync) > CASE.B12.ISsum4.sync
@@ -890,6 +912,8 @@ rm temp.cov.sync
 
 ``` bash
 source activate random_draw
+# Subsample the B12 IS pool to 4 pseudo-replicates and pair IS (gen 0) with each treatment's post
+# counts (gen 1) -> CA/CASE/SE/CON.B12.input.
 
 python ../scripts/sub_sample.py CASE.B12.ISsum4nh.cov.sync CASE.B12.ISsum4nh.sync CASE.B12.ISs.sync
 
@@ -1162,6 +1186,10 @@ B12.pval.table$PVAL <- as.numeric(B12.pval.table$PVAL)
 
 ``` bash
 source activate CASE
+# Across-blocks (AB) pooled analysis. Rebuild each block's IS/T0 pool from the combined sync (IS
+# columns 37-48), keep loci with IS coverage >72 in every block and at least one pool covered, build
+# per-block coverage subsets, replicate each IS pool to its treatment-rep count, and cap treatment
+# depth at IS depth (B1x.AB.cov.sync).
 
 head -1 CASE.All.Blocks.cov.sync > h.temp
 tail -n +2 CASE.All.Blocks.cov.sync | sort -k1,1 -k2,2n > b.temp
@@ -1183,16 +1211,16 @@ bash ../scripts/sum.sh <(cut -f1,2,3,45-48 CASE.All.Blocks.cov.fil.sync) > CASE.
 
 mawk -f ../scripts/add_cov_sync <(cut -f1-3,7,9,12,15,19,22,26,30,32,51,52,55  CASE.All.Blocks.cov.fil.sync ) > B10.AB.cov.sync
 mawk -f ../scripts/add_cov_sync <(cut -f1-3,5,10,14,16,23,24,27,29,35,49,54,58 CASE.All.Blocks.cov.fil.sync) > B11.AB.cov.sync
-#mawk -f ../scripts/add_cov_sync <(cut -f1-3,5,8,10,14,16,21,23,24,27,29,33,35,49,53,54,58 CASE.All.Blocks.cov.fil.sync) > B11.AB.cov.sync
+# mawk -f ../scripts/add_cov_sync <(cut -f1-3,5,8,10,14,16,21,23,24,27,29,33,35,49,53,54,58 CASE.All.Blocks.cov.fil.sync) > B11.AB.cov.sync
 
 mawk -f ../scripts/add_cov_sync <(cut -f1-3,4,6,13,17,18,20,28,31,34,56,57,59 CASE.All.Blocks.cov.fil.sync) > B12.AB.cov.sync
-#mawk -f ../scripts/add_cov_sync <(cut -f1-3,4,6,11,13,17,18,20,25,28,31,34,36,50,56,57,59 CASE.All.Blocks.cov.fil.sync) > B12.AB.cov.sync
+# mawk -f ../scripts/add_cov_sync <(cut -f1-3,4,6,11,13,17,18,20,25,28,31,34,36,50,56,57,59 CASE.All.Blocks.cov.fil.sync) > B12.AB.cov.sync
 
-#paste CASE.B10.AB.ISsum.sync <(cut -f4 CASE.B10.AB.ISsum.sync) <(cut -f4 CASE.B10.AB.ISsum.sync)   > CASE.B10.AB.ISsum3.sync
+# paste CASE.B10.AB.ISsum.sync <(cut -f4 CASE.B10.AB.ISsum.sync) <(cut -f4 CASE.B10.AB.ISsum.sync)   > CASE.B10.AB.ISsum3.sync
 
-#paste CASE.B11.AB.ISsum.sync <(cut -f4 CASE.B11.AB.ISsum.sync) <(cut -f4 CASE.B11.AB.ISsum.sync)  > CASE.B11.AB.ISsum4.sync
+# paste CASE.B11.AB.ISsum.sync <(cut -f4 CASE.B11.AB.ISsum.sync) <(cut -f4 CASE.B11.AB.ISsum.sync)  > CASE.B11.AB.ISsum4.sync
 
-#paste CASE.B12.AB.ISsum.sync <(cut -f4 CASE.B12.AB.ISsum.sync) <(cut -f4 CASE.B12.AB.ISsum.sync)  > CASE.B12.AB.ISsum4.sync
+# paste CASE.B12.AB.ISsum.sync <(cut -f4 CASE.B12.AB.ISsum.sync) <(cut -f4 CASE.B12.AB.ISsum.sync)  > CASE.B12.AB.ISsum4.sync
 
 paste CASE.B10.AB.ISsum.sync <(cut -f4 CASE.B10.AB.ISsum.sync) <(cut -f4 CASE.B10.AB.ISsum.sync) <(cut -f4 CASE.B10.AB.ISsum.sync)  > CASE.B10.AB.ISsum3.sync
 paste CASE.B11.AB.ISsum.sync <(cut -f4 CASE.B11.AB.ISsum.sync) <(cut -f4 CASE.B11.AB.ISsum.sync) <(cut -f4 CASE.B11.AB.ISsum.sync)  > CASE.B11.AB.ISsum4.sync
@@ -1216,12 +1244,16 @@ rm temp.cov.sync
 
 ``` bash
 source activate random_draw
+# Subsample each block's AB IS pool to coverage-matched pseudo-replicates.
 python ../scripts/sub_sample.py CASE.B10.AB.ISsum3.cov.sync <( mawk '!/CHR/' CASE.B10.AB.ISsum3.sync) CASE.B10.ISs.AB.sync
 python ../scripts/sub_sample.py CASE.B11.AB.ISsum4.cov.sync <( mawk '!/CHR/' CASE.B11.AB.ISsum4.sync) CASE.B11.ISs.AB.sync
 python ../scripts/sub_sample.py CASE.B12.AB.ISsum4.cov.sync <(mawk '!/CHR/' CASE.B12.AB.ISsum4.sync) CASE.B12.ISs.AB.sync
 ```
 
 ``` bash
+# Assemble the pooled across-blocks CMH inputs: interleave every spawn's IS (gen 0) and treatment
+# (gen 1) columns into one sync per treatment (CA/CASE/SE/CON.AB.input). A few known artifact
+# positions are dropped by POS.
 cat <(echo -e "CHROM\tPOS\tREF\tISB11_RS1\tISB11_RS2\tISB11_RS3\tISB11_RS4") CASE.B11.ISs.AB.sync > CASE.B11.ISsum.AB.sync
 cat <(echo -e "CHROM\tPOS\tREF\tISB10_RS1\tISB10_RS2\tISB10_RS3\tISB10_RS4") CASE.B10.ISs.AB.sync > CASE.B10.ISsum.AB.sync
 cat <(echo -e "CHROM\tPOS\tREF\tISB12_RS1\tISB12_RS2\tISB12_RS3\tISB12_RS4") CASE.B12.ISs.AB.sync > CASE.B12.ISsum.AB.sync
@@ -1233,7 +1265,7 @@ tail -n +2 CASE.AB.sync | mawk '$2 != 74609903 && $2 != 93711267 && $2 != 360308
 
 paste <(cut -f1-4 CASE.B10.ISsum.AB.sync) <(cut -f7 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B10.ISsum.AB.sync) <(cut -f9 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B10.ISsum.AB.sync) <(cut -f12 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B11.ISsum.AB.sync) <(cut -f5 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B11.ISsum.AB.sync) <(cut -f8 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B11.ISsum.AB.sync) <(cut -f10 CASE.All.Blocks.cov.fil.sync) <(cut -f7 CASE.B11.ISsum.AB.sync) <(cut -f14 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B12.ISsum.AB.sync) <(cut -f4 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B12.ISsum.AB.sync) <(cut -f6 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B12.ISsum.AB.sync) <(cut -f11 CASE.All.Blocks.cov.fil.sync) <(cut -f7 CASE.B12.ISsum.AB.sync) <(cut -f13 CASE.All.Blocks.cov.fil.sync) > CA.AB.sync
 
-#paste <(cut -f1-4 CASE.B10.ISsum.AB.sync) <(cut -f7 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B10.ISsum.AB.sync) <(cut -f9 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B10.ISsum.AB.sync) <(cut -f12 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B11.ISsum.AB.sync) <(cut -f5 CASE.All.Blocks.cov.fil.sync)  <(cut -f5 CASE.B11.ISsum.AB.sync) <(cut -f10 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B11.ISsum.AB.sync) <(cut -f14 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B12.ISsum.AB.sync) <(cut -f4 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B12.ISsum.AB.sync) <(cut -f6 CASE.All.Blocks.cov.fil.sync)  <(cut -f6 CASE.B12.ISsum.AB.sync) <(cut -f13 CASE.All.Blocks.cov.fil.sync) > CA.AB.sync
+# paste <(cut -f1-4 CASE.B10.ISsum.AB.sync) <(cut -f7 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B10.ISsum.AB.sync) <(cut -f9 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B10.ISsum.AB.sync) <(cut -f12 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B11.ISsum.AB.sync) <(cut -f5 CASE.All.Blocks.cov.fil.sync)  <(cut -f5 CASE.B11.ISsum.AB.sync) <(cut -f10 CASE.All.Blocks.cov.fil.sync) <(cut -f6 CASE.B11.ISsum.AB.sync) <(cut -f14 CASE.All.Blocks.cov.fil.sync) <(cut -f4 CASE.B12.ISsum.AB.sync) <(cut -f4 CASE.All.Blocks.cov.fil.sync) <(cut -f5 CASE.B12.ISsum.AB.sync) <(cut -f6 CASE.All.Blocks.cov.fil.sync)  <(cut -f6 CASE.B12.ISsum.AB.sync) <(cut -f13 CASE.All.Blocks.cov.fil.sync) > CA.AB.sync
 
 tail -n +2 CA.AB.sync | mawk '$2 != 93711267 && $2 != 59024150 && $2 != 2532550'> CA.AB.input 
 
@@ -1330,10 +1362,7 @@ AB.pval.table$PVAL <- as.numeric(AB.pval.table$PVAL)
 ## Determine Significant Loci
 
 ``` r
-# ── Step 1: Convert raw p-values to q-values for each block ──────────────────
-# Qvalue_convert applies the qvalue package (pi0 = 1) to CMH p-value tables,
-# returning a data frame with q-values for each treatment (QCA, QCASE, QSE, QCON)
-
+# p-values -> q-values per block (QCA, QCASE, QSE, QCON)
 Qvalue_convert(B10.pval.table) -> B10.pv
 Qvalue_convert(B11.pval.table) -> B11.pv
 Qvalue_convert(B12.pval.table) -> B12.pv
@@ -1341,27 +1370,14 @@ Qvalue_convert(AB.pval.table) -> AB.pv
 ```
 
 ``` r
-# ── Step 2: Define FDR thresholds ────────────────────────────────────────────
-# alpha  = primary FDR threshold applied to treatment q-values (QCA, QCASE, QSE)
-# alpha2 = CON q-value floor: SNPs must have QCON > alpha2 to exclude loci
-#          that are also differentiating in the control (likely artifacts or
-#          family effects rather than treatment-driven selection)
-#
-# Per-block alpha corrections (applied to Convergent and Private tiers):
-#   B10.alpha = 0.001 — 10x stricter than base; B10 p-values are inflated by
-#               genetic drift from fewer spawning broodstock, so a tighter
-#               threshold is needed to prevent B10 from dominating non-core tiers.
-#   B11.alpha = 0.1   — 10x looser than base; B11 has lower coverage and fewer
-#               loci, so statistical power is reduced and the threshold is relaxed.
-#   Core tiers (Tier A/B) do not apply these corrections because requiring signal
-#   across multiple independent blocks already controls for private drift.
+# FDR thresholds. alpha = primary FDR on treatment q-values; alpha2 = CON floor (require QCON > alpha2
+# to drop loci also shifting in the control: artifacts / family effects, not treatment selection).
+# Per-block corrections (Convergent/Private tiers only): B10.alpha = 0.001 (10x stricter, drift from
+# fewer broodstock), B11.alpha = 0.1 (10x looser, lower coverage/power). Core tiers skip these since
+# multi-block replication already controls drift.
 
-# ── Helper: apply_treatment_filter ───────────────────────────────────────────
-# After subsetting to SNPs significant for one treatment, zero out the Sig.*
-# flags for the other two treatments. This ensures that when per-treatment
-# subsets are combined with bind_rows(), each row is attributed to a single
-# stressor and doesn't carry spurious significance flags from the subsetting
-# source data frame.
+# After subsetting to one treatment's sig SNPs, zero the other Sig.* flags so each row is attributed
+# to a single stressor once the per-treatment subsets are bind_rows()'d.
 apply_treatment_filter <- function(df, keep_treatment) {
   treatments <- c("Sig.CA", "Sig.CASE", "Sig.SE")
   other <- setdiff(treatments, keep_treatment)
@@ -1369,11 +1385,8 @@ apply_treatment_filter <- function(df, keep_treatment) {
   df
 }
 
-# top1pct_filter: within the already-significant loci (df), retain only those
-# whose treatment q-value falls in the top 1% of that significant set.
-# Quantiles are computed only on loci with QCON > 0.1 so that CON-significant
-# loci with inflated treatment signal do not pull the threshold up against
-# genuinely treatment-specific outliers.
+# Within sig loci, keep the top 1% by treatment q-value. Quantile computed on QCON > 0.1 loci so
+# CON-significant loci don't inflate the threshold.
 top1pct_filter <- function(df) {
   df_con <- subset(df, QCON > 0.1)
   subset(df,
@@ -1383,13 +1396,10 @@ top1pct_filter <- function(df) {
   )
 }
 
-# ── Step 3: Pool all three blocks (unfiltered) ───────────────────────────────
-# pp1 is used later to identify CON-significant SNPs across the per-block data
+# pool all three blocks (unfiltered); pp1 used later to flag CON-significant SNPs
 pp1 <- rbind(B10.pv, B11.pv, B12.pv)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # TIER A: q < 0.10, significant in ALL THREE BLOCKS (Sig.Loci.3)
-# ══════════════════════════════════════════════════════════════════════════════
 alpha  <- 0.10
 alpha2 <- 0.10
 
@@ -1424,8 +1434,7 @@ ppsig.B12.1$BLOCK <- 12
 
 ppsig3.FDR10 <- rbind(ppsig.B10.1, ppsig.B11.1, ppsig.B12.1)
 
-# Retain only SNPs significant for a given treatment in all 3 blocks (n() > 2),
-# then zero out the other treatment flags before combining
+# keep SNPs significant in all 3 blocks (n() > 2), then zero the other treatment flags
 all_sig.CA   <- subset(ppsig3.FDR10, Sig.CA   == TRUE) %>%
                   group_by(SNP) %>% filter(n() > 2) %>%
                   apply_treatment_filter("Sig.CA")
@@ -1441,9 +1450,7 @@ all_sig.SE   <- subset(ppsig3.FDR10, Sig.SE   == TRUE) %>%
 all_sig <- bind_rows(all_sig.CA, all_sig.CASE, all_sig.SE)
 write.table(all_sig, "Sig.Loci.3", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # TIER B: q < 0.05, significant in AT LEAST TWO BLOCKS (Sig.Loci.2)
-# ══════════════════════════════════════════════════════════════════════════════
 alpha  <- 0.05
 alpha2 <- 0.10
 B11.alpha <- 0.1 # Block 11 correction: 0.10
@@ -1494,8 +1501,7 @@ multi_sig.SE   <- subset(ppsig3.FDR05, Sig.SE   == TRUE) %>%
 multi_sig <- rbind(multi_sig.CA, multi_sig.CASE, multi_sig.SE)
 write.table(multi_sig, "Sig.Loci.2", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ── Per-block q < 0.01 intermediates ─────────────────────────────────────────
-# ppsig3.FDR01 feeds PRIVATE TIER and CONVERGENT TIER:
+# per-block q < 0.01 intermediates; feed Private and Convergent tiers
 alpha  <- 0.01
 alpha2 <- 0.10
 B11.alpha <- 0.1  # Block 11 correction: 0.1
@@ -1535,14 +1541,8 @@ write.table(ppsig.B10.01,    "Sig.Loci.FDR01.Block10",  sep = "\t", row.names = 
 write.table(ppsig.B11.01,    "Sig.Loci.FDR01.Block11",  sep = "\t", row.names = FALSE, quote = FALSE)
 write.table(ppsig.B12.01,    "Sig.Loci.FDR01.Block12",  sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PRIVATE TIER: private alpha thresholds AND top 1% of q-values
-# ══════════════════════════════════════════════════════════════════════════════
-# top1pct_filter selects the top 1% strongest signals among already-significant
-# loci (quantile computed on CON-clean subset; QCON > 0.1).
-# Block alphas: B10 = 0.001 (drift correction), B11 = 0.1 (power correction),
-# B12 = 0.01 (base). Restricted to singletons via semi_join below.
-
+# PRIVATE TIER: per-block alpha + top 1% of q-values.
+# Block alphas: B10 = 0.001 (drift), B11 = 0.1 (power), B12 = 0.01 (base). Restricted to singletons below.
 ppsig.B10 <- Significat_subset(B10.pv, B10.alpha,     alpha2) %>% top1pct_filter()
 ```
 
@@ -1575,11 +1575,8 @@ singleton   <- read.table("singleton.loci",         header = TRUE)
 sing.lowvar <- read.table("singleton.loci.lowvar",  header = TRUE)
 sing.lowcov <- read.table("singleton.loci.lowcov",  header = TRUE)
 
-# Attribute each private locus to a single stressor before combining, mirroring
-# the Core and Convergent tiers: subset per treatment and zero the other Sig.*
-# flags via apply_treatment_filter so each row carries a single-stressor signal.
-# Private loci are singletons and so are not required to replicate across blocks
-# (no n() filter), but the per-treatment attribution is applied for consistency.
+# attribute each private locus to one stressor (subset + apply_treatment_filter), as in the other
+# tiers. Singletons aren't required to replicate (no n() filter); attribution kept for consistency.
 Priv_pooled    <- rbind(ppsig.B10, ppsig.B11, ppsig.B12)
 Priv_all       <- bind_rows(
   subset(Priv_pooled, Sig.CA   == TRUE) %>% apply_treatment_filter("Sig.CA"),
@@ -1590,13 +1587,9 @@ ppsig1.s        <- semi_join(Priv_all, singleton,   by = "SNP")
 ppsig1.s.lowvar <- semi_join(Priv_all, sing.lowvar, by = "SNP")
 ppsig1.s.lowcov <- semi_join(Priv_all, sing.lowcov, by = "SNP")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# CONVERGENT TIER: per-block q < 0.01 in ≥1 block AND q < 0.0001 in all-blocks (AB)
-# ══════════════════════════════════════════════════════════════════════════════
-# These loci have modest per-block signal that cross-validates against the
-# pooled all-blocks analysis. Detected only in the pooled across-spawn analysis rather than any single
-# spawning block — indicating consistent but weak selection below individual-block
-# detection power. BLOCK 33 is a dummy identifier for the AB dataset.
+# CONVERGENT TIER: per-block q < 0.01 in >=1 block AND q < 0.0001 in all-blocks (AB).
+# Modest per-block signal cross-validated against the pooled across-spawn analysis: weak but
+# consistent selection below single-block power. BLOCK 33 is a dummy id for the AB dataset.
 ppsig1.ab       <- Significat_subset(AB.pv, 0.0001, alpha2)
 ```
 
@@ -1624,18 +1617,14 @@ conv.CA <- bind_rows(subset(ppsig3.FDR01, Sig.CA   == TRUE),
 
 convergent.sig <- bind_rows(conv.SE, conv.CASE, conv.CA)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # CON FILTER
-# ══════════════════════════════════════════════════════════════════════════════
 conpp1   <- subset(pp1,   QCON < 0.01)
 conpp.AB <- subset(AB.pv, QCON < 0.001)
 all_con  <- bind_rows(conpp1, conpp.AB) %>% group_by(SNP) %>% filter(n() > 1)
 all_con  <- subset(all_con, QCON / QCASE < 10 & QCON / QCA < 10 & QCON / QSE < 10)
 write.table(all_con, "ALL.CON.SNPS", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # FINAL UNION: all three tiers combined, CON-filtered
-# ══════════════════════════════════════════════════════════════════════════════
 total.sig <- anti_join(
   bind_rows(all_sig, multi_sig, convergent.sig, ppsig1.s),
   all_con,
@@ -1643,22 +1632,13 @@ total.sig <- anti_join(
 )
 write.table(total.sig, "Total.Significant.uf.Loci", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# THREE-WAY SPLIT of significant loci
-# ══════════════════════════════════════════════════════════════════════════════
-# Tiers are assigned hierarchically (Core > Convergent > Private) so that
-# each locus appears in exactly one tier.
-#
-# Exception: low-variation singletons that appear in the Convergent candidates
-# are reclassified as Private. For these loci the Convergent all-blocks
-# signal is driven by a single polymorphic spawn — the other two blocks are
-# near-fixed (MAF < 0.015), so the AB result is not cross-block validation.
-# priv_source records whether a Private locus originated from the
-# Convergent candidates ("Convergent") or directly from per-block outlier filtering ("Single").
+# THREE-WAY SPLIT: tiers assigned hierarchically (Core > Convergent > Private) so each locus lands in
+# exactly one tier. Exception: lowvar singletons among Convergent candidates move to Private (their AB
+# signal is single-spawn-driven; the other two blocks are near-fixed, MAF < 0.015, so not cross-block
+# validation). priv_source tags Private origin as "Convergent" or "Single".
 
-# Core (Tiers A and B): strong replicated signal across multiple independent
-# spawning blocks. Consistent response regardless of private variation
-# in effluent composition or larval pool standing genetic variation.
+# Core (Tiers A+B): strong replicated signal across independent spawning blocks, regardless of private
+# variation in effluent composition or standing genetic variation.
 core.sig <- anti_join(
   bind_rows(all_sig, multi_sig),
   all_con,
@@ -1666,9 +1646,8 @@ core.sig <- anti_join(
 )
 write.table(core.sig, "Sig.Loci.Core", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# Convergent: Core excluded first; then lowvar singletons split off to Private.
-# Remaining loci cross-validate a per-block signal against the all-blocks analysis
-# across spawns with adequate MAF — genuine weak consistent selection.
+# Convergent: drop Core first, then split lowvar singletons to Private. Remainder cross-validates a
+# per-block signal against the all-blocks analysis (adequate MAF): weak but consistent selection.
 conv_candidates <- anti_join(convergent.sig, core.sig, by = "SNP")
 conv_to_priv      <- semi_join(conv_candidates, sing.lowvar, by = "SNP") %>%
                   anti_join(all_con, by = "SNP") %>%
@@ -1677,11 +1656,9 @@ convergent.sig  <- anti_join(conv_candidates, sing.lowvar, by = "SNP") %>%
                   anti_join(all_con, by = "SNP")
 write.table(convergent.sig, "Sig.Loci.Convergent", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# Private: two sources combined, annotated by priv_source.
-# "Single"    — top-5% per-block outliers among singleton loci (testable in 1–2 blocks
-#               only due to low coverage or near-fixation in absent spawns).
-# "Convergent" — lowvar singletons reclassified from Convergent: near-fixed in absent
-#               blocks, so AB signal was single-spawn-driven rather than cross-validated.
+# Private: two sources tagged by priv_source.
+# "Single"     top per-block outliers among singletons (testable in 1-2 blocks only; low coverage or near-fixation in absent spawns)
+# "Convergent" lowvar singletons moved from Convergent (near-fixed in absent blocks, so AB signal was single-spawn-driven, not cross-validated)
 priv_single <- anti_join(
   anti_join(
     anti_join(ppsig1.s, core.sig, by = "SNP"),
@@ -1699,6 +1676,8 @@ write.table(private.sig, "Sig.Loci.Private", sep = "\t", row.names = FALSE, quot
 
 ``` bash
 source activate CASE
+# Proximity/CON control filter: map the control-outlier SNPs (ALL.CON.SNPS) to gene regions and
+# flag any total-outlier loci falling in those CON-associated genes for removal.
 
 cut -f2,3 Total.Significant.uf.Loci | tail -n +2 | sort -k1,2 | uniq | mawk '{print $1 "\t" $2-1 "\t" $2}' | bedtools sort -i - > CASE.Total.Significant.uf.loci.bed
 
@@ -1733,6 +1712,7 @@ write.table(totalsig.CASE, "sig.case", sep="\t", row.names = FALSE, quote = FALS
 ```
 
 ``` bash
+# Tag total outliers by treatment group (SE / CA / Both) for the group colouring in plots.
 cat <(echo -e "SNP\tGroup") <(mawk '{if (NR > 1) print $1"\tSE"}' sig.se ) <(mawk '{if (NR > 1) print $1"\tCA"}' sig.ca ) <(mawk '{if (NR > 1) print $1"\tBoth"}' sig.both ) > sig.table
 ```
 
@@ -1741,11 +1721,9 @@ cat <(echo -e "SNP\tGroup") <(mawk '{if (NR > 1) print $1"\tSE"}' sig.se ) <(maw
 ``` bash
 source activate CASE
 
-# ─── bedtools CON-filtering for each locus tier ──────────────────────────────
-# con.loci.filter.bed (built above from ALL.CON.SNPS x gene model) is
-# reference-derived and applies equally to all tiers. core.sig, convergent.sig,
-# and private.sig were already R-level filtered with anti_join(... , all_con);
-# this step removes any remaining loci overlapping CON-associated gene regions.
+# bedtools CON-filtering per tier. con.loci.filter.bed (from ALL.CON.SNPS x gene model) is
+# reference-derived and applies to all tiers; removes loci overlapping CON gene regions left after
+# the R-level anti_join(..., all_con).
 
 # Core (Tiers A and B: strong replicated signal across multiple blocks)
 cut -f2,3 Sig.Loci.Core | tail -n +2 | sort -k1,2 | uniq | \
@@ -1770,9 +1748,7 @@ cat <(echo -e "SNP\tCHROM\tBP") \
 ```
 
 ``` r
-# ─── Secondary CON filter (bedtools-derived) for each tier ───────────────────
-# Applies the gene-region-based CON filter (bedtools intersect result) on top
-# of the R-level anti_join filter already applied during locus definition.
+# secondary CON filter per tier: gene-region-based (bedtools) on top of the R-level anti_join above
 
 # Core
 con_filter.core <- read.table("ToFilter.Con.Core.Loci.txt", header = TRUE)
@@ -1801,10 +1777,7 @@ grouped_private.sig <- group_and_average(private.sig)
 write.table(grouped_private.sig, "Priv.Significant.Grouped.Loci",
             sep = "\t", row.names = FALSE, quote = FALSE)
 
-# ─── Per-treatment splits for each tier ──────────────────────────────────────
-# Mirrors the total.sig treatment splits above.
-# Sig.CA, Sig.SE, Sig.CASE are logical columns; "both" = loci sig in both CA and SE.
-# Empty subsets are possible for sparse tiers in some treatment categories.
+# per-treatment splits per tier (mirrors total.sig above); "both" = sig in CA and SE. Sparse tiers may give empty subsets.
 
 # Core
 coresig.CA   <- subset(core.sig, Sig.CA == TRUE  & Sig.SE == FALSE)
@@ -1838,7 +1811,7 @@ write.table(bssig.CASE, "sig.priv.case", sep = "\t", row.names = FALSE, quote = 
 ```
 
 ``` bash
-# ─── Per-tier sig.table files (mirrors sig.table for total) ──────────────────
+# Per-tier sig.table files (mirrors sig.table for total)
 for TIER in Core Conv Priv; do
   TIER_LC="${TIER,,}"
   cat <(echo -e "SNP\tGroup") \
@@ -1850,6 +1823,7 @@ done
 
 ``` bash
 source activate CASE
+# Total significant loci -> BED, +/-100 bp merged intervals, and the gene (LOC) list they hit.
 
 cut -f2,3 Total.Significant.Loci | tail -n +2 | sort -k1,2 | uniq | mawk '{print $1 "\t" $2-1 "\t" $2}' | bedtools sort -i - > CASE.Total.Significant.loci.bed
 bedtools slop -b 100 -i CASE.Total.Significant.loci.bed  -g ../reference.fasta.fai  | bedtools merge -i - >  CASE.Total.Significant.loci.intervals.bed
@@ -1860,6 +1834,8 @@ bedtools intersect -wb -a CASE.Total.Significant.loci.bed -b ~/CASE/analysis/sor
 
 ``` bash
 source activate CASE
+# Per-treatment and pairwise significant loci -> gene (LOC) lists (CA / SE / CASE and their overlaps),
+# using the Sig.CASE / Sig.CA / Sig.SE flag columns of Total.Significant(.Grouped).Loci.
 
 mawk '$14 == "TRUE" ' Total.Significant.Loci | sort -k1,2 | mawk '{print $2 "\t" $3-1 "\t" $3}' | uniq  > CA.Significant.loci.bed
 bedtools intersect -wb -a CA.Significant.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.1.CA.LOC
@@ -1895,9 +1871,10 @@ cat SE.ONLY.Significant.loci.bed SE.CASE.Significant.loci.bed| sort | uniq  > SE
 
 ``` bash
 source activate CASE
+# Per-block (B10/B11/B12) per-treatment significant loci -> gene (LOC) lists, from the q<0.01 per-block sets.
 
 
-#B10
+# B10
 mawk '$14 == "TRUE"' Sig.Loci.FDR01.Block10 | sort -k1,2  | mawk '{print $2 "\t" $3-1 "\t" $3}'| uniq  > CA.Significant.B10.loci.bed
 bedtools intersect -wb -a CA.Significant.B10.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.B10.CA.LOC
 
@@ -1907,7 +1884,7 @@ bedtools intersect -wb -a SE.Significant.B10.loci.bed -b ~/CASE/analysis/sorted.
 mawk '$13 == "TRUE" ' Sig.Loci.FDR01.Block10 | sort -k1,2 |  mawk '{print $2 "\t" $3-1 "\t" $3}' | uniq  > CASE.Significant.B10.loci.bed
 bedtools intersect -wb -a CASE.Significant.B10.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.B10.CASE.LOC
 
-#B11
+# B11
 mawk '$14 == "TRUE"' Sig.Loci.FDR01.Block11 | sort -k1,2  | mawk '{print $2 "\t" $3-1 "\t" $3}'  | uniq > CA.Significant.B11.loci.bed
 bedtools intersect -wb -a CA.Significant.B11.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.B11.CA.LOC
 
@@ -1917,7 +1894,7 @@ bedtools intersect -wb -a SE.Significant.B11.loci.bed -b ~/CASE/analysis/sorted.
 mawk '$13 == "TRUE" ' Sig.Loci.FDR01.Block11 | sort -k1,2  |  mawk '{print $2 "\t" $3-1 "\t" $3}' | uniq  > CASE.Significant.B11.loci.bed
 bedtools intersect -wb -a CASE.Significant.B11.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.B11.CASE.LOC
 
-#B12
+# B12
 mawk '$14 == "TRUE" ' Sig.Loci.FDR01.Block12 | sort -k1,2 | mawk '{print $2 "\t" $3-1 "\t" $3}' | uniq  > CA.Significant.B12.loci.bed
 bedtools intersect -wb -a CA.Significant.B12.loci.bed -b ~/CASE/analysis/sorted.ref3.0.gene.bed | grep -oh "gene=LOC.*;g" | sed 's/gene=//g' | sed 's/;g//g' | sort | uniq > Sig.loci.B12.CA.LOC
 
@@ -1931,17 +1908,10 @@ bedtools intersect -wb -a CASE.Significant.B12.loci.bed -b ~/CASE/analysis/sorte
 ### Tier-specific gene annotation
 
 ``` r
-# ─── Column index verification ────────────────────────────────────────────────
-# The bash chunks below use fixed column indices. This block verifies those
-# indices against the actual file headers before any gene annotation runs.
-# stop() halts the pipeline with a diagnostic message on mismatch (e.g., if
-# group_and_average column order changes upstream).
-#
-# Expected schema for *.Significant.Loci (same as Total.Significant.Loci):
-#   col 13 = Sig.CASE, col 14 = Sig.CA, col 15 = Sig.SE
-# Expected schema for *.Significant.Grouped.Loci (group_and_average output):
-#   col 11 = Sig.CASE, col 12 = Sig.CA, col 13 = Sig.SE, col 14 = CHROM, col 15 = BP
-
+# The bash chunks below use fixed column indices; verify them against the file headers first and
+# stop() on mismatch (e.g. if group_and_average column order changes upstream).
+# *.Significant.Loci:         col 13 = Sig.CASE, 14 = Sig.CA, 15 = Sig.SE
+# *.Significant.Grouped.Loci: col 11 = Sig.CASE, 12 = Sig.CA, 13 = Sig.SE, 14 = CHROM, 15 = BP
 verify_col_indices <- function(filepath, expected) {
   hdr <- colnames(read.table(filepath, header = TRUE, nrows = 1, sep = "\t"))
   for (nm in names(expected)) {
@@ -1994,7 +1964,7 @@ source activate CASE
 
 GENE_BED=~/CASE/analysis/sorted.ref3.0.gene.bed
 
-# ─── Total LOC gene lists per tier ───────────────────────────────────────────
+# Total LOC gene lists per tier
 
 cut -f2,3 Core.Significant.Loci | tail -n +2 | sort -k1,2 | uniq | \
   mawk '{print $1 "\t" $2-1 "\t" $2}' | bedtools sort -i - > Core.Significant.loci.bed
@@ -2017,13 +1987,8 @@ source activate CASE
 
 GENE_BED=~/CASE/analysis/sorted.ref3.0.gene.bed
 
-# ─── Per-treatment LOC lists per tier ────────────────────────────────────────
-# Column indices (verified by the R chunk above):
-#   *.Significant.Loci:         col 13 = Sig.CASE, col 14 = Sig.CA, col 15 = Sig.SE
-#   *.Significant.Grouped.Loci: col 11 = Sig.CASE, col 12 = Sig.CA, col 13 = Sig.SE
-#                               col 14 = CHROM, col 15 = BP
-# Empty output files are expected for sparse tiers in some treatment categories.
-
+# per-treatment LOC lists per tier. Cols (verified above): col 13 = Sig.CASE, 14 = Sig.CA, 15 = Sig.SE.
+# Empty output expected for sparse tiers.
 for TIER in Core Conv Priv; do
   LOCI="${TIER}.Significant.Loci"
 
@@ -2055,12 +2020,8 @@ source activate CASE
 
 GENE_BED=~/CASE/analysis/sorted.ref3.0.gene.bed
 
-# ─── Pairwise and triple-treatment LOC lists per tier ────────────────────────
-# Grouped.Loci column indices: col 11 = Sig.CASE, col 12 = Sig.CA, col 13 = Sig.SE
-#                              col 14 = CHROM, col 15 = BP
-# Core tier will have the most populated combination sets; Convergent and Private
-# output may be empty in some categories, which is expected and interpretable.
-
+# pairwise and triple-treatment LOC lists per tier. Grouped.Loci cols: col 11 = Sig.CASE, 12 = Sig.CA,
+# 13 = Sig.SE, 14 = CHROM, 15 = BP. Core is most populated; Conv/Priv may be empty in some categories.
 for TIER in Core Conv Priv; do
   GLOCI="${TIER}.Significant.Grouped.Loci"
 
@@ -2107,6 +2068,7 @@ SNP/gene Venn.
 
 ``` bash
 source activate CASE
+# Pairwise and triple gene-list intersections (genes shared by >=2 treatments) for the SNP/gene Venn.
 cat Sig.loci.1.CA.LOC Sig.loci.1.SE.LOC   | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.CA.SE.LOC
 cat Sig.loci.1.CA.LOC Sig.loci.1.CASE.LOC | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.CA.CASE.LOC
 cat Sig.loci.1.SE.LOC Sig.loci.1.CASE.LOC | sort | uniq -c | mawk '$1 > 1' | mawk '{print $2}' > Sig.loci.1.SE.CASE.LOC
@@ -2119,6 +2081,7 @@ cat Sig.loci.1.SE.LOC Sig.loci.1.CASE.LOC Sig.loci.1.CA.LOC | sort | uniq -c | m
 
 ``` bash
 source activate CASE
+# Download the C. virginica GO annotation (GAF) from NCBI.
 mkdir -p ./GO
 cd ./GO
 
@@ -2135,6 +2098,7 @@ Making a tab file with gene ID and GO IDs. Each gene has one row with
 all associated GO terms separated by semicolons.
 
 ``` bash
+# Build the gene -> GO map: one row per gene with all its GO IDs joined by ';' (gene2go_full.tab).
 cd ./GO
 
 awk 'NR>9 {print $3 "\t" $5}' gene_ontology.gaf | 
@@ -2181,7 +2145,7 @@ awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' CASE_cand_genes_GO.tab 
 ``` bash
 cd ./GO
 
-# --- Core loci (Tiers A–C, multi-block) ---
+# Core loci (Tiers A-C, multi-block)
 grep -F -f ../Sig.loci.Core.TOTAL.LOC  gene2go_full.tab > Core_ALL_cand_genes_GO.tab
 awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Core_ALL_cand_genes_GO.tab  > Core_ALL_cand_genes_GO_head.tab
 
@@ -2194,7 +2158,7 @@ awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Core_SE_cand_genes_GO.t
 grep -F -f ../Sig.loci.Core.CASE.LOC   gene2go_full.tab > Core_CASE_cand_genes_GO.tab
 awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Core_CASE_cand_genes_GO.tab > Core_CASE_cand_genes_GO_head.tab
 
-# --- Private loci ---
+# Private loci
 grep -F -f ../Sig.loci.Priv.TOTAL.LOC    gene2go_full.tab > Priv_ALL_cand_genes_GO.tab
 awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Priv_ALL_cand_genes_GO.tab    > Priv_ALL_cand_genes_GO_head.tab
 
@@ -2207,7 +2171,7 @@ awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Priv_SE_cand_genes_GO.t
 grep -F -f ../Sig.loci.Priv.CASE.LOC     gene2go_full.tab > Priv_CASE_cand_genes_GO.tab
 awk 'BEGIN {print "gene_name\tGeneOntologyIDs"} {print}' Priv_CASE_cand_genes_GO.tab   > Priv_CASE_cand_genes_GO_head.tab
 
-# --- Convergent loci (per-block + all-blocks cross-validated) ---
+# Convergent loci (per-block + all-blocks cross-validated)
 # Note: these files may be empty if convergent loci map to no annotated genes;
 # downstream R code handles empty input gracefully via run_topGO_analysis().
 grep -F -f ../Sig.loci.Conv.TOTAL.LOC  gene2go_full.tab > Conv_ALL_cand_genes_GO.tab
@@ -2255,11 +2219,8 @@ run_topGO_analysis <- function(cand_gene_file, all_genes, gene2go_topgo, label) 
   GeneList <- factor(as.integer(all_genes %in% cand_genes))
   names(GeneList) <- all_genes
 
-  # topGO's factor path requires both classes present (a 0/1 split). If no
-  # candidate gene falls in the annotated universe (or, degenerately, all do),
-  # the factor collapses to one level and new("topGOdata") errors with
-  # "allGenes must be a factor with 2 levels". Skip gracefully and return NULL
-  # (handled downstream), printing the count so the cause is visible on knit.
+  # topGO needs a 0/1 split; if no candidate is in the annotated universe (or all are) the factor
+  # has <2 levels and new("topGOdata") errors, so skip and return NULL (handled downstream)
   n_in <- sum(all_genes %in% cand_genes)
   cat(paste0("Candidate genes in annotated universe: ", n_in, " of ", length(all_genes), "\n"))
   if (nlevels(GeneList) < 2) {
@@ -2275,7 +2236,7 @@ run_topGO_analysis <- function(cand_gene_file, all_genes, gene2go_topgo, label) 
   
   results_list <- list()
   
-  # --- Biological Processes ---
+  # Biological Processes
   GO_BP <- new("topGOdata", ontology="BP", gene2GO=gene2go_topgo, 
                allGenes=GeneList, annot = annFUN.gene2GO, geneSel=topDiffGenes)
   GO_BP_FE <- runTest(GO_BP, algorithm="weight01", statistic="fisher")
@@ -2292,7 +2253,7 @@ run_topGO_analysis <- function(cand_gene_file, all_genes, gene2go_topgo, label) 
     results_list[["BP"]] <- GO_BP_sig_gene
   }
   
-  # --- Cellular Components ---
+  # Cellular Components
   GO_CC <- new("topGOdata", ontology="CC", gene2GO=gene2go_topgo, 
                allGenes=GeneList, annot = annFUN.gene2GO, geneSel=topDiffGenes)
   GO_CC_FE <- runTest(GO_CC, algorithm="weight01", statistic="fisher")
@@ -2309,7 +2270,7 @@ run_topGO_analysis <- function(cand_gene_file, all_genes, gene2go_topgo, label) 
     results_list[["CC"]] <- GO_CC_sig_gene
   }
   
-  # --- Molecular Functions ---
+  # Molecular Functions
   GO_MF <- new("topGOdata", ontology="MF", gene2GO=gene2go_topgo, 
                allGenes=GeneList, annot = annFUN.gene2GO, geneSel=topDiffGenes)
   GO_MF_FE <- runTest(GO_MF, algorithm="weight01", statistic="fisher")
@@ -3210,7 +3171,7 @@ GO_CASE <- run_topGO_analysis("./GO/CASE_cand_genes_GO_head.tab", all_genes, gen
 ### Run GO enrichment for Core loci
 
 ``` r
-# Core loci: multi-block, Tiers A–C; highest-confidence locus set
+# Core loci: multi-block, Tiers A-C; highest-confidence locus set
 GO_Core_ALL  <- run_topGO_analysis("./GO/Core_ALL_cand_genes_GO_head.tab",  all_genes, gene2go_topgo, "Core: All Outliers")
 ```
 
@@ -5715,7 +5676,6 @@ on stable GO IDs. Builds `go_clusters_stress` (Fig 4D) and
 `go_clusters_full` (Table S).
 
 ``` r
-library(igraph)
 go_list <- Filter(Negate(is.null), list(GO_CA, GO_SE, GO_CASE))
 go_pool <- as.data.table(rbindlist(go_list, fill = TRUE))
 setnames(go_pool, "GeneOntologyIDs", "GO")
@@ -5903,7 +5863,7 @@ disp_gene <- function(loc) { out <- gene_sym[loc]; out[is.na(out)] <- loc[is.na(
 ## 2.1 PCAs — ΔAF-from-initial (all blocks) + three per-block outlier PCAs
 
 ``` r
-# ΔAF-from-initial PCA (ported from CASE_FULL_FINAL.Rmd L3655). Treatment fill, spawn shape.
+# dAF-from-initial PCA (ported from CASE_FULL_FINAL.Rmd L3655). Treatment fill, spawn shape.
 M <- input.all.outlier.af
   is_b10 <- grep("^IS_B10", colnames(M)); is_b11 <- grep("^IS_B11", colnames(M))
   is_b12 <- grep("^IS_B12", colnames(M))
@@ -5984,7 +5944,7 @@ for (b in blocks) {
 
 ``` r
 # True-outlier universe per treatment: SNPs flagged Sig.<trt> TRUE in any tier
-# (Core/Convergent/Private) — same definition feeding the Venn/Sig.loci
+# (Core/Convergent/Private) - same definition feeding the Venn/Sig.loci
 # files and the turnover panel's true_case set (cf. lines 372-375).
 true_outliers <- function(trt) {
   sigcol <- paste0("Sig.", trt)
@@ -6013,21 +5973,16 @@ shared_counts <- function(sets) length(shared_set(sets))
 drop_na  <- function(x) x[!is.na(x)]
 gmap     <- function(s) unname(gene_of[s])
 
-# (a) SNP-level shareable universe: shared_counts() can only register a SNP
-# as "reproduced" if it's present in >=2 of the 3 blocks' pv tables, so the
-# random/CON null universes should be restricted to that shareable set —
-# otherwise block-private SNPs dilute con_mean/random_mean and inflate
-# enrichment factors.
+# (a) SNP-level shareable universe: shared_counts() only counts a SNP as reproduced if it's in >=2 of
+# 3 blocks, so restrict the random/CON nulls to that set (else block-private SNPs inflate enrichment)
 all_snp        <- lapply(blocks, function(b) pv_list[[b]]$SNP)
 shareable_snps <- shared_set(all_snp)
 
 univ_snp <- lapply(blocks, function(b) intersect(pv_list[[b]]$SNP, shareable_snps))
 con_snp  <- lapply(blocks, function(b) intersect(pv_list[[b]][QCON < alpha, SNP], shareable_snps))
 
-# (b) Gene-level shareability: a gene can only register in the gene-level
-# shared_counts() if it's reachable (via any SNP) from >=2 of the 3 blocks,
-# independent of which specific SNP maps to it. Mark non-shareable genes NA
-# so drop_na() excludes them from the gene-level draws.
+# (b) Gene-level shareability: a gene counts only if reachable (via any SNP) from >=2 of 3 blocks.
+# Mark non-shareable genes NA so drop_na() drops them from the gene-level draws.
 all_gene        <- lapply(all_snp, function(s) unique(drop_na(gmap(s))))
 shareable_genes <- shared_set(all_gene)
 
@@ -6039,9 +5994,8 @@ mask_unshareable_genes <- function(s) {
 univ_gene <- lapply(univ_snp, mask_unshareable_genes)
 con_gene  <- lapply(con_snp,  mask_unshareable_genes)
 
-# Sanity check: gene-level fold-enrichment is much smaller than locus-level
-# because gene_of collapses many SNPs onto few genes, so random SNP sets
-# overlap at the gene level far more often by chance.
+# sanity check: gene-level fold-enrichment < locus-level because gene_of collapses many SNPs onto
+# few genes, so random SNP sets overlap more often at the gene level by chance
 cat("Shareable SNP universe size:", length(unique(unlist(univ_snp))),
     " | Shareable gene universe size:", length(unique(unlist(drop_na(unlist(univ_gene))))), "\n")
 ```
@@ -6258,29 +6212,26 @@ figS2
 ``` bash
 source activate CASE
 
-# Build per-tier position filters from the Significant.Loci files created in the
-# CON-filtering section. Each filter is a CHR/BP table used to subset the
-# full sync file.
-# NOTE: eval=TRUE (lightweight mawk subsetting of existing sync files). Must run
-# so the renamed Core/Conv/Priv .outlier.pca.sync files exist for the tier PCAs.
+# per-tier CHR/BP position filters from the Significant.Loci files (CON-filtering section), used to
+# subset the full sync file. eval=TRUE (light mawk) so the tier .outlier.pca.sync files exist below.
 
-# --- Core loci ---
+# Core loci
 mawk '!/CHR/' Core.Significant.Loci | cut -f2,3 | sort | uniq > Core.pca.filter
-# All-blocks sync (cov-filtered, columns 1–56 only)
+# All-blocks sync (cov-filtered, columns 1-56 only)
 mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Core.pca.filter CASE.All.Blocks.cov.sync \
   | cut --complement -f60- > Core.outlier.pca.sync
 # Raw sync (for per-block PCA loop below)
 mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Core.pca.filter CASE.All.Blocks.sync \
   | cut --complement -f60- > Core.outlier.pca.block.sync
 
-# --- Private loci ---
+# Private loci
 mawk '!/CHR/' Priv.Significant.Loci | cut -f2,3 | sort | uniq > Priv.pca.filter
 mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Priv.pca.filter CASE.All.Blocks.cov.sync \
   | cut --complement -f60- > Priv.outlier.pca.sync
 mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Priv.pca.filter CASE.All.Blocks.sync \
   | cut --complement -f60- > Priv.outlier.pca.block.sync
 
-# --- Convergent loci ---
+# Convergent loci
 mawk '!/CHR/' Conv.Significant.Loci | cut -f2,3 | sort | uniq > Conv.pca.filter
 mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Conv.pca.filter CASE.All.Blocks.cov.sync \
   | cut --complement -f60- > Conv.outlier.pca.sync
@@ -6291,20 +6242,13 @@ mawk 'NR==FNR{a[$1,$2]; next} ($1,$2) in a' Conv.pca.filter CASE.All.Blocks.sync
 ### All-samples PCA helper function
 
 ``` r
-# run_tier_pca(): reads a sync file for one locus tier, computes allele
-# frequencies, runs PCA (all 56 samples), and saves two PNGs — one colored
-# by Treatment, one by Spawn (block).
-#
-# Arguments:
-#   sync_file   — path to the tier-filtered .sync file (cov-filtered, 56 cols)
-#   tier_label  — human-readable label used in plot titles
-#   out_prefix  — file-name prefix for PNG output (e.g. "PC_Core")
-#
-# Returns invisibly: list(pca_df, var_explained, p_treat, p_spawn)
+# run_tier_pca(): AF -> PCA (all 56 samples) for one tier's sync file; saves two PNGs (by Treatment,
+# by Spawn). Args: sync_file (cov-filtered, 56 cols), tier_label (title), out_prefix (PNG prefix).
+# Returns invisibly list(pca_df, var_explained, p_treat, p_spawn).
 run_tier_pca <- function(sync_file, tier_label, out_prefix) {
   cat(paste0("\n=== PCA: ", tier_label, " ===\n"))
 
-  # Sample metadata — same order as in all existing PCA blocks
+  # Sample metadata - same order as in all existing PCA blocks
   treatment.labels <- c(rep("CA", 11), rep("CASE", 11), rep("CON", 11),
                         rep("IS", 12), rep("SE", 11))
   spawn.names <- c("B12","B11","B12","B10","B11","B10","B11","B12","B10","B12",
@@ -6467,7 +6411,7 @@ add_design <- list(b10 = list(gen = c(0,1,0,1,0,1),       repl = c(1,1,2,2,3,3))
                    b12 = list(gen = c(0,1,0,1,0,1,0,1),   repl = c(1,1,2,2,3,3,4,4)))
 add_us <- function(x) sub("\\.(?=[^.]+$)", "_", x, perl = TRUE)
 
-# treatment-level ΔAF per locus per block: mean(post) - mean(initial), coverage-filtered per pool.
+# treatment-level dAF per locus per block: mean(post) - mean(initial), coverage-filtered per pool.
 add_delta <- function(tr, blk) {
   af  <- as.matrix(get(paste0(tolower(tr), ".", blk, ".af")))
   cov <- as.matrix(get(paste0(tolower(tr), ".", blk, ".cov")))
@@ -6488,7 +6432,7 @@ add_perblk <- rbindlist(lapply(add_blocks, function(blk) {
 }))
 add_perblk[, block := factor(block, levels = toupper(add_blocks))]
 
-# one point per locus (averaged across blocks) — used for panel membership and the fits
+# one point per locus (averaged across blocks) - used for panel membership and the fits
 add_pl <- add_perblk[, .(x = mean(x), y = mean(y), n_blk = .N), by = SNP]
 add_gts  <- as.data.table(grouped_total.sig)
 add_flag <- function(col) unique(add_gts[as.logical(get(col)), SNP])
@@ -6573,8 +6517,8 @@ fwrite(add_plpanel, file.path(tab_dir, "Fig3_additivity_perlocus.csv"))
 fwrite(add_catsum,  file.path(tab_dir, "Fig3_additivity_by_category.csv"))
 
 rng <- quantile(c(add_pl$x, add_pl$y), c(0.0001, 0.9999), na.rm = TRUE)
-#set.seed(1); n_bg <- 100000
-#bg_snps <- add_bgpool[sample.int(.N, min(n_bg, .N)), SNP]
+# set.seed(1); n_bg <- 100000
+# bg_snps <- add_bgpool[sample.int(.N, min(n_bg, .N)), SNP]
 bg_snps <- add_bgpool[n_blk == 3, SNP]
 bg <- rbindlist(lapply(add_lev, function(L) { d <- add_pl[SNP %in% bg_snps, .(x, y)]; d[, panel := L]; d }))
 bg[, panel := factor(panel, levels = add_lev)]
@@ -6592,8 +6536,8 @@ fig3_add <- ggplot(mapping = aes(x, y)) +
             size = 3, lineheight = 0.9, inherit.aes = FALSE) +
   facet_wrap(~ panel, ncol = 3) +
   coord_equal(xlim = rng, ylim = rng) +
-  #scale_x_continuous(expand=c(0,0), limits = rng) +
-  #scale_y_continuous(expand=c(0,0), limits = rng) +
+  # scale_x_continuous(expand=c(0,0), limits = rng) +
+  # scale_y_continuous(expand=c(0,0), limits = rng) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
        y = "ΔAF CASE − ΔAF CON   [combined response]",
        title = "Fig 3 — Magnitude synergy: control-anchored additivity",
@@ -6920,7 +6864,7 @@ godat <- rbindlist(lapply(names(go_files), function(tr) {
   godat[, stressor := factor(stressor, levels = c("CA","SE","CASE"))]
   godat[, cat := factor(cat, levels = c("GO:BP","GO:CC","GO:MF"))]
   # x position from a GLOBAL term order (by category, then GO id) so the same term sits at the
-  # same x in every treatment facet — a Manhattan-style layout sorted by term, not by p.
+  # same x in every treatment facet - a Manhattan-style layout sorted by term, not by p.
   # Add a visible gap between GO:BP / GO:CC / GO:MF blocks so the grouping is obvious without
   # needing a shape legend at all.
   terms <- unique(godat[, .(GO, cat)]); setorder(terms, cat, GO)
@@ -6936,7 +6880,7 @@ godat <- rbindlist(lapply(names(go_files), function(tr) {
   sep_x <- head(catbounds$maxx, -1) + gap / 2
   xr     <- range(terms$x)
   ymax_go <- max(godat$neglogp, na.rm = TRUE)
-  # single faceted plot (one row per treatment) instead of a nested patchwork stack --
+  # single faceted plot (one row per treatment) instead of a nested patchwork stack
   # facet panels are guaranteed equal-width and fill the plot area, avoiding the
   # wrap_elements() sizing issues we kept hitting with a 3-plot stack.
   label_df <- data.table(stressor = factor(c("CA","SE","CASE"), levels = c("CA","SE","CASE")),
@@ -7030,7 +6974,7 @@ cdf$grp <- factor(cdf$grp, levels = c("CA","SE","CASE"))
 regs <- c("CA","SE","CASE","CA_SE","CA_CASE","SE_CASE","ALL")
 lab_pos <- data.frame(
   reg = regs,
-  #     CA     SE    CASE  CA_SE CA_CASE SE_CASE ALL
+  # CA     SE    CASE  CA_SE CA_CASE SE_CASE ALL
   x = c(-1.00, 1.00, 0,     0,   -0.50,   0.50,   0),
   y = c( 0.62, 0.62, -1.00, 0.72, -0.12, -0.12,   0.08))
 lab_pos$lab <- paste0(snp_d[as.character(lab_pos$reg)], "\n(", gene_d[as.character(lab_pos$reg)], ")")
@@ -7085,7 +7029,7 @@ go_el <- patchwork::wrap_elements(full=go_panel)
 
 
 # Layout (8 cols): top 4 rows = Manhattan (A, 5/8) | GO stack (B, 3/8)  [taller];
-#                  bottom 2 rows = combined Venn (C, 4/8) | heatmap (D, 4/8) -- even split.
+# bottom 2 rows = combined Venn (C, 4/8) | heatmap (D, 4/8) -- even split.
 
 
 design3 <- "
@@ -7099,7 +7043,7 @@ fig3 <- man_el + go_el + venn_combined + fig3d +
   plot_annotation(tag_levels = "A") &
   theme(plot.title = element_text(size = 12))
 save_case(fig3, "Fig4_compositional_synergy.png", width = 16, height = 15)
-#fig3
+# fig3
 ```
 
 ## Fig S6 — Per-spawn outlier overlap (Venns)
@@ -7216,7 +7160,7 @@ themes <- list(
 theme_levels <- names(themes)
 
 # Representative mollusc genes per theme (from GO_analysis_report.md, Section 4).
-# Used ONLY for axis labels — turns the count heatmap into a mechanism figure.
+# Used ONLY for axis labels - turns the count heatmap into a mechanism figure.
 # These are literature-derived exemplars, not the CASE candidate-gene list itself.
 theme_genes <- c(
   "Cilium / microtubule motility" = "tubulin, tektin, dynein",
@@ -7243,7 +7187,7 @@ theme_counts <- function(df) {
          integer(1))
 }
 
-# Treatment palette — matches Ven.png / cbPaletteSmall3: CA orange, SE blue, CASE green.
+# Treatment palette - matches Ven.png / cbPaletteSmall3: CA orange, SE blue, CASE green.
 treat_pal <- c(CA = "#E69F00", SE = "#0072B2", CASE = "#009E73")
 
 # Shared heatmap builder (gene-annotated y axis).
@@ -7267,7 +7211,7 @@ theme_heatmap <- function(df, x_col, x_levels, fill_col, palette, title_label) {
           axis.text.y = element_text(hjust = 1, lineheight = 0.95, size = 11))
 }
 
-# ---- 3a: theme x treatment (Total outlier set) ----
+# 3a: theme x treatment (Total outlier set)
 mat_treat <- sapply(list(CA = GO_CA, SE = GO_SE, CASE = GO_CASE), theme_counts)
 df_treat <- as.data.frame(mat_treat, check.names = FALSE) %>%
   mutate(theme = theme_levels) %>%
@@ -7284,7 +7228,7 @@ print(p_theme_treat)
 ggsave("./GO/GO_theme_heatmap_treatment.png", p_theme_treat,
        width = 11, height = 6.5, dpi = 300, bg = "transparent")
 
-# ---- 3b: theme x tier, for the CASE treatment ----
+# 3b: theme x tier, for the CASE treatment
 mat_tier <- sapply(list(Core = GO_Core_CASE, Convergent = GO_Conv_CASE,
                         "Private" = GO_Priv_CASE), theme_counts)
 df_tier <- as.data.frame(mat_tier, check.names = FALSE) %>%
@@ -7592,7 +7536,7 @@ stressor_cols <- unlist(treat_cols[c("CA","SE","CASE")])
 arch_panel_tier <- function(tr, leg = FALSE) {
   d <- arch[tier == tr]
   center <- ggplot(d, aes(MAF0, abs_dAF, colour = treatment, group = treatment)) +
-    #geom_point(alpha = 0.15, size = 1, stroke = 0.5) +
+    # geom_point(alpha = 0.15, size = 1, stroke = 0.5) +
     geom_point(aes(shape=treatment),alpha = 0.1, size = 0.25, stroke = 1) +
     geom_point(aes(shape=treatment),alpha = 0.2, size = 0.33, stroke = 1, col="gray", fill="gray") +
     geom_density_2d() +
@@ -7608,23 +7552,16 @@ arch_panel_tier <- function(tr, leg = FALSE) {
     # enlarge the legend keys only (plotted points keep their mapped alpha)
     guides(colour = guide_legend(override.aes = list(size = 4, alpha = 1))) +
     theme_case(12) + theme(legend.position = if (leg) "bottom" else "none")
-  # bounds = ... clips the kernel density estimate to the valid range of each quantity
-  # (MAF in [0, 0.5]; |dAF| in [0, 1]) so the marginal densities don't bleed past 0 or
-  # imply density beyond what's possible.
-  # MAF0 is the starting allele frequency of each SNP, measured once before
-  # treatment -- it is a property of the SNP/block, not of the stressor. CA/SE/CASE
-  # rows for a given SNP+block share (essentially) the same MAF0, so splitting this
-  # marginal by treatment just draws three near-identical curves. Use the
-  # deduplicated per-SNP/block MAF0 values and a single neutral density instead.
+  # bounds = ... clips the KDE to the valid range (MAF in [0, 0.5]; |dAF| in [0, 1]) so densities
+  # don't bleed past the limits. MAF0 is per-SNP/block (measured pre-treatment), not per-stressor, so
+  # CA/SE/CASE share it: dedup per SNP+block and draw a single neutral density instead of 3 identical ones.
   d_maf0 <- unique(d, by = c("SNP", "block"))
   top <- ggplot(d_maf0, aes(x = MAF0)) +
     geom_density(aes(), colour = cbPalette[2], fill = cbPalette[2], alpha = 0.4,
                   bounds = c(0, 0.5), na.rm = TRUE) +
     theme_void()
-  # Ridgeline marginal for |dAF|: each stressor gets its own row (y = treatment), so
-  # curves never overlap or hide one another regardless of relative peak height or
-  # shape. CASE is plotted on the bottom row (closest to `center`'s axis), CA above
-  # it, SE on top.
+  # ridgeline marginal for |dAF|: one row per stressor (y = treatment) so curves never overlap.
+  # CASE bottom (nearest `center`), CA middle, SE top.
   right <- ggplot(d, aes(x = abs_dAF, y = treatment, fill = treatment, colour = treatment)) +
     geom_density_ridges(alpha = 0.6, scale = 1.2, 
                           rel_min_height = 0.01, na.rm = TRUE) +
@@ -7765,7 +7702,7 @@ fig4_byspawn
 # Supplementary tables
 
 ``` r
-# Table S1 — locus counts by tier x treatment
+# Table S1 - locus counts by tier x treatment
 tier_count <- function(df, tier) data.frame(Tier = tier,
   CA   = sum(asL(df$Sig.CA),   na.rm = TRUE),
   SE   = sum(asL(df$Sig.SE),   na.rm = TRUE),
@@ -7784,17 +7721,17 @@ print(tabS1)
     ## 3    Private 233  249  639  1121
 
 ``` r
-# Table S2 — full significant-loci table (tier + treatment flags)
+# Table S2 - full significant-loci table (tier + treatment flags)
 write.csv(as.data.frame(grouped_total.sig),
           file.path(tab_dir, "TableS2_significant_loci.csv"), row.names = FALSE)
 
-# Table S3 — GO enrichment (per-stressor topGO results, combined)
+# Table S3 - GO enrichment (per-stressor topGO results, combined)
 go_all <- rbindlist(lapply(c("ALL","CA","SE","CASE"), function(tr) {
   d <- fread(file.path("./GO", paste0(tr, "_GO_en_sig_gene.csv"))); d$stressor <- tr; d
 }), fill = TRUE)
 fwrite(go_all, file.path(tab_dir, "TableS3_GO_enrichment.csv"))
 
-# Table S4 — candidate gene lists per stressor
+# Table S4 - candidate gene lists per stressor
 loc_src <- c(CA = "Sig.loci.1.CA.LOC", SE = "Sig.loci.1.SE.LOC", CASE = "Sig.loci.1.CASE.LOC")
 for (tr in names(loc_src))
   file.copy(loc_src[[tr]], file.path(tab_dir, paste0("TableS4_candidate_genes_", tr, ".txt")), overwrite = TRUE)
@@ -22244,7 +22181,7 @@ sessionInfo()
     ## [43] splines_3.6.0        knitr_1.50           pillar_1.11.1       
     ## [46] boot_1.3-32          reshape2_1.4.5       codetools_0.2-20    
     ## [49] futile.options_1.0.1 glue_1.8.0           evaluate_1.0.5      
-    ## [52] lambda.r_1.2.4       vctrs_0.6.5          png_0.1-8           
+    ## [52] lambda.r_1.2.4       png_0.1-8            vctrs_0.6.5         
     ## [55] nloptr_2.2.1         gtable_0.3.5         purrr_1.0.2         
     ## [58] ggpp_0.4.4           cachem_1.1.0         xfun_0.54           
     ## [61] ragg_1.2.5           viridisLite_0.4.2    tibble_3.3.0        
