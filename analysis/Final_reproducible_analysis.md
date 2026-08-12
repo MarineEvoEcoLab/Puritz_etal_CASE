@@ -1,21 +1,21 @@
-CASE — Reproducible Analysis (Coastal Acidification & Sewage Effluent)
+CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
 2026-08-12
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
-- [Fig 1 — Experimental design and replicated
-  survival](#fig-1--experimental-design-and-replicated-survival)
+- [Fig 1. Experimental design and replicated
+  survival](#fig-1-experimental-design-and-replicated-survival)
   - [Survival statistics](#survival-statistics)
-  - [Fig 1 — four-spawn survival
-    strip](#fig-1--four-spawn-survival-strip)
-  - [Fig 1 — assemble with PowerPoint
-    schematic](#fig-1--assemble-with-powerpoint-schematic)
-    - [Fig S1 — Final survival across T0
-      denominators](#fig-s1--final-survival-across-t0-denominators)
-    - [Fig S2 — Larval morphology and development
-      (4-panel)](#fig-s2--larval-morphology-and-development-4-panel)
+  - [Fig 1. Four-spawn survival strip](#fig-1-four-spawn-survival-strip)
+  - [Fig 1. Assemble with PowerPoint
+    schematic](#fig-1-assemble-with-powerpoint-schematic)
+  - [Larval development and size](#larval-development-and-size)
+    - [Fig S1. Larval morphology and development
+      (4-panel)](#fig-s1-larval-morphology-and-development-4-panel)
+  - [Fig S2. Final survival across T0
+    denominators](#fig-s2-final-survival-across-t0-denominators)
   - [Filtering](#filtering)
     - [Create Unified Sync file](#create-unified-sync-file)
     - [Add coverage stats to sync file and filter by minimum
@@ -63,18 +63,18 @@ Jonathan Puritz
   - [Table 1 and Table S5](#table-1-and-table-s5)
   - [Outlier allele-frequency matrices (for the Fig 2
     PCAs)](#outlier-allele-frequency-matrices-for-the-fig-2-pcas)
-- [Fig 2 — Outlier loci & cross-spawn
-  repeatability](#fig-2--outlier-loci--cross-spawn-repeatability)
+- [Fig 2. Outlier loci and cross-spawn
+  reproducibility](#fig-2-outlier-loci-and-cross-spawn-reproducibility)
   - [Figure parameters and guard](#figure-parameters-and-guard)
-  - [2.1 PCAs — ΔAF-from-initial (all blocks) + three per-block outlier
-    PCAs](#21-pcas--δaf-from-initial-all-blocks--three-per-block-outlier-pcas)
+  - [2.1 PCAs: ΔAF-from-initial (all blocks) + three per-block outlier
+    PCAs](#21-pcas-δaf-from-initial-all-blocks--three-per-block-outlier-pcas)
   - [2.2 Reproducibility bars (3b) + lethality coupling
     (3c)](#22-reproducibility-bars-3b--lethality-coupling-3c)
-  - [2.3 Within-gene allele turnover (3E-A) — same genes, different
-    SNPs](#23-within-gene-allele-turnover-3e-a--same-genes-different-snps)
-  - [Fig S3 — Genome-wide PCA (10,000 random
-    loci)](#fig-s3--genome-wide-pca-10000-random-loci)
-  - [Fig S4 — Tier-specific PCA](#fig-s4--tier-specific-pca)
+  - [2.3 Within-gene allele turnover (3E-A): same genes, different
+    SNPs](#23-within-gene-allele-turnover-3e-a-same-genes-different-snps)
+  - [Fig S3. Genome-wide PCA (10,000 random
+    loci)](#fig-s3-genome-wide-pca-10000-random-loci)
+  - [Fig S4. Tier-specific PCA](#fig-s4-tier-specific-pca)
   - [Tier-specific PCA](#tier-specific-pca)
     - [Extract tier-specific sync
       files](#extract-tier-specific-sync-files)
@@ -86,43 +86,42 @@ Jonathan Puritz
   change](#fig-3-additivity-of-allele-frequency-change)
   - [3.1 Additivity scatter and per-panel orthogonal
     fits](#31-additivity-scatter-and-per-panel-orthogonal-fits)
-  - [Fig S5 — Additivity scatter faceted by replication
-    tier](#fig-s5--additivity-scatter-faceted-by-replication-tier)
+  - [Fig S5. Additivity scatter faceted by replication
+    tier](#fig-s5-additivity-scatter-faceted-by-replication-tier)
 - [Fig 4. Treatment-exclusive loci and functional
   enrichment](#fig-4-treatment-exclusive-loci-and-functional-enrichment)
   - [4.1 Block-12 Manhattan, stacked across CA / SE /
     CASE](#41-block-12-manhattan-stacked-across-ca--se--case)
-  - [4.1b Per-spawn Manhattan stacks (B10, B11) —
-    supplement](#41b-per-spawn-manhattan-stacks-b10-b11--supplement)
-  - [4.2 GO enrichment — custom plot from the TopGO
-    CSVs](#42-go-enrichment--custom-plot-from-the-topgo-csvs)
-  - [4.3 One Venn — SNP and gene counts together (custom
-    ggplot)](#43-one-venn--snp-and-gene-counts-together-custom-ggplot)
-  - [4.4b Mechanism panel D — data-driven stress GO
-    clusters](#44b-mechanism-panel-d--data-driven-stress-go-clusters)
+  - [4.1b Per-spawn Manhattan stacks (B10, B11):
+    supplement](#41b-per-spawn-manhattan-stacks-b10-b11-supplement)
+  - [4.2 GO enrichment: custom plot from the TopGO
+    CSVs](#42-go-enrichment-custom-plot-from-the-topgo-csvs)
+  - [4.3 One Venn: SNP and gene counts together (custom
+    ggplot)](#43-one-venn-snp-and-gene-counts-together-custom-ggplot)
+  - [4.4b Mechanism panel D: data-driven stress GO
+    clusters](#44b-mechanism-panel-d-data-driven-stress-go-clusters)
   - [4.5 Assemble Fig 4 (patchwork)](#45-assemble-fig-4-patchwork)
-  - [Fig S6 — Per-spawn outlier overlap
-    (Venns)](#fig-s6--per-spawn-outlier-overlap-venns)
-  - [Fig S9 — Full GO enrichment by stressor
-    (topGO)](#fig-s9--full-go-enrichment-by-stressor-topgo)
-  - [Fig S13 — GO-term overlap and biological-theme
-    enrichment](#fig-s13--go-term-overlap-and-biological-theme-enrichment)
-- [Fig 5 — Diversity, architecture, and convergent function (CA / SE /
-  CASE)](#fig-5--diversity-architecture-and-convergent-function-ca--se--case)
-  - [Fig S15 — Top enriched GO terms per tier
-    (topGO)](#fig-s15--top-enriched-go-terms-per-tier-topgo)
-  - [Fig S16 — Tier architecture by spawn
-    (3x3)](#fig-s16--tier-architecture-by-spawn-3x3)
+  - [Fig S6. Per-spawn outlier overlap
+    (Venns)](#fig-s6-per-spawn-outlier-overlap-venns)
+  - [Fig S9. Full GO enrichment by stressor
+    (topGO)](#fig-s9-full-go-enrichment-by-stressor-topgo)
+  - [Fig S13. GO-term overlap and biological-theme
+    enrichment](#fig-s13-go-term-overlap-and-biological-theme-enrichment)
+- [Fig 5. Diversity, architecture, and convergent function (CA / SE /
+  CASE)](#fig-5-diversity-architecture-and-convergent-function-ca--se--case)
+  - [Fig S15. Top enriched GO terms per tier
+    (topGO)](#fig-s15-top-enriched-go-terms-per-tier-topgo)
+  - [Fig S16. Tier architecture by spawn
+    (3x3)](#fig-s16-tier-architecture-by-spawn-3x3)
 - [Supplementary tables](#supplementary-tables)
-  - [Table S3 — GO enrichment terms by stressor (one row per
-    term)](#table-s3--go-enrichment-terms-by-stressor-one-row-per-term)
-    - [Table S3a — All Outlier Loci](#table-s3a--all-outlier-loci)
-    - [Table S3b — CA Stressor](#table-s3b--ca-stressor)
-    - [Table S3c — SE Stressor](#table-s3c--se-stressor)
-    - [Table S3d — CASE Stressor
-      (CA+SE)](#table-s3d--case-stressor-case)
-  - [Table 1 — All data-driven GO clusters (main
-    text)](#table-1--all-data-driven-go-clusters-main-text)
+  - [Table S3: GO enrichment terms by stressor (one row per
+    term)](#table-s3-go-enrichment-terms-by-stressor-one-row-per-term)
+    - [Table S3a. All Outlier Loci](#table-s3a-all-outlier-loci)
+    - [Table S3b. CA Stressor](#table-s3b-ca-stressor)
+    - [Table S3c. SE Stressor](#table-s3c-se-stressor)
+    - [Table S3d. CASE Stressor (CA+SE)](#table-s3d-case-stressor-case)
+  - [Table 1: All data-driven GO clusters (main
+    text)](#table-1-all-data-driven-go-clusters-main-text)
 
 > Single reproducible pipeline for the CASE study. The document is
 > organized around the five main figures (Fig 1 survival/phenotype → Fig
@@ -264,7 +263,7 @@ mamba env create --file ../CASE_environment.yaml
 mamba env create --file ../random_draw_environment.yaml
 ```
 
-# Fig 1 — Experimental design and replicated survival
+# Fig 1. Experimental design and replicated survival
 
 ## Survival statistics
 
@@ -366,14 +365,14 @@ m_ob <- tryCatch(glmmTMB(p ~ CA * SE + (1 | Block), family = ordbeta, data = sd_
 if (!is.null(m_ob)) { cat("\n--- ordered-beta cross-check (proportion) ---\n"); print(summary(m_ob)$coefficients$cond) }
 ```
 
-## Fig 1 — four-spawn survival strip
+## Fig 1. Four-spawn survival strip
 
 The PowerPoint experiment schematic is placed above this panel in the
 final figure.
 
 ``` r
 # Composite-denominator survival at the end timepoint (the value used for all statistics). The
-# sensitivity to the T0 denominator choice is shown separately in Fig S3.
+# sensitivity to the T0 denominator choice is shown separately in Fig S2.
 mort_end2 <- final_data_end[, .(Block, Treatment,
   Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))),
   Survival = surv_Composite)]
@@ -392,7 +391,7 @@ fig1b
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig1-survival-1.png)<!-- -->
 
-## Fig 1 — assemble with PowerPoint schematic
+## Fig 1. Assemble with PowerPoint schematic
 
 ``` r
 fig1_top_png <- png::readPNG("../data/Fig1Panel1_top.png")
@@ -410,36 +409,7 @@ fig1
 save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 9)
 ```
 
-### Fig S1 — Final survival across T0 denominators
-
-Sensitivity of the mortality estimate to the initial-density (T0)
-reference. The main figure (Fig 1) uses the composite denominator; here
-the end-timepoint survival is shown under all four denominators, faceted
-by spawn (rows) and denominator (columns), so the treatment order can be
-seen to hold regardless of the reference.
-
-``` r
-mort_dn <- melt(final_data_end[, .(Block,
-    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
-    Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
-  id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
-mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
-figS1mort <- ggplot(mort_dn, aes(Treatment, Survival, fill = Treatment)) +
-  geom_boxplot(outlier.colour = NA, alpha = 0.7, colour = "black", width = 0.55) +
-  geom_jitter(aes(colour = Treatment), width = 0.12, height = 0, size = 1.1, alpha = 0.7) +
-  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
-  facet_grid(Spawn ~ Denominator, scales = "free_y") +
-  labs(x = NULL, y = "Percent survival",
-       title = "Fig S1 — final survival by treatment across T0 denominators and spawns") +
-  theme_case(11) +
-  theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
-        legend.position = "none")
-save_supp(figS1mort, "FigS1_mortality_denominators.png", width = 12, height = 11)
-figS1mort
-```
-
-![](Final_reproducible_analysis_files/figure-gfm/figS1-mortality-denominators-1.png)<!-- -->
-\## Larval development and size
+## Larval development and size
 
 ``` r
 dev_size <- read.table("../data/CASE_LNDA.txt", sep = "\t", header = TRUE)
@@ -481,18 +451,48 @@ Circumference <- ggplot(final_size, aes(x = Time, y = Circumference, fill = Trea
   labs(title = "Circumference") + theme_classic()
 ```
 
-### Fig S2 — Larval morphology and development (4-panel)
+### Fig S1. Larval morphology and development (4-panel)
 
 ``` r
-figS2 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
+figS1 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S1 — Larval morphology and development")
-save_supp(figS2, "FigS2_morphology.png", width = 16, height = 13)
+                  title = "Fig S1. Larval morphology and development")
+save_supp(figS1, "FigS1_morphology.png", width = 16, height = 13)
+figS1
+```
+
+![](Final_reproducible_analysis_files/figure-gfm/figS1-morphology-1.png)<!-- -->
+
+## Fig S2. Final survival across T0 denominators
+
+Sensitivity of the mortality estimate to the initial-density (T0)
+reference. The main figure (Fig 1) uses the composite denominator; here
+the end-timepoint survival is shown under all four denominators, faceted
+by spawn (rows) and denominator (columns), so the treatment order can be
+seen to hold regardless of the reference.
+
+``` r
+mort_dn <- melt(final_data_end[, .(Block,
+    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
+    Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
+  id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
+mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
+figS2 <- ggplot(mort_dn, aes(Treatment, Survival, fill = Treatment)) +
+  geom_boxplot(outlier.colour = NA, alpha = 0.7, colour = "black", width = 0.55) +
+  geom_jitter(aes(colour = Treatment), width = 0.12, height = 0, size = 1.1, alpha = 0.7) +
+  scale_fill_manual(values = treat_cols) + scale_colour_manual(values = treat_cols, guide = "none") +
+  facet_grid(Spawn ~ Denominator, scales = "free_y") +
+  labs(x = NULL, y = "Percent survival",
+       title = "Fig S2. Final survival by treatment across T0 denominators and spawns") +
+  theme_case(11) +
+  theme(strip.background = element_blank(), strip.text = element_text(face = "bold"),
+        legend.position = "none")
+save_supp(figS2, "FigS2_mortality_denominators.png", width = 12, height = 11)
 figS2
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS2-morphology-1.png)<!-- -->
-\# Genomic data — shared substrate
+![](Final_reproducible_analysis_files/figure-gfm/figS2-mortality-denominators-1.png)<!-- -->
+\# Genomic data: shared substrate
 
 These steps build the allele-frequency, CMH q-value, and locus-tier
 objects that all of Figs 2–4 depend on. Steps that need large
@@ -5855,7 +5855,7 @@ input.all.outlier.block.af <- af(input.all.outlier.block, gen = seq(1,56), repl 
 colnames(input.all.outlier.block.af) <- paste(treatment.labels, spawn.names, sep = "_")
 ```
 
-# Fig 2 — Outlier loci & cross-spawn repeatability
+# Fig 2. Outlier loci and cross-spawn reproducibility
 
 ## Figure parameters and guard
 
@@ -5927,7 +5927,7 @@ gene_sym <- setNames(ifelse(is.na(sym_dt$sym), sym_dt$gene, sym_dt$sym), sym_dt$
 disp_gene <- function(loc) { out <- gene_sym[loc]; out[is.na(out)] <- loc[is.na(out)]; unname(out) }
 ```
 
-## 2.1 PCAs — ΔAF-from-initial (all blocks) + three per-block outlier PCAs
+## 2.1 PCAs: ΔAF-from-initial (all blocks) + three per-block outlier PCAs
 
 ``` r
 # dAF-from-initial PCA (ported from CASE_FULL_FINAL.Rmd L3655). Treatment fill, spawn shape.
@@ -5961,7 +5961,7 @@ M <- input.all.outlier.af
     guides(fill = "none",  # Panel A: Spawn legend only; colour keys to spawn so it merges with Panel G's
            shape = guide_legend(override.aes = list(fill = unname(spawn_cols)))) +
     labs(x = sprintf("PC1 (%.1f%%)", ve[1]), y = sprintf("PC2 (%.1f%%)", ve[2]),
-         title = "Outlier loci — ΔAF from initial, all blocks") +
+         title = "Outlier loci: ΔAF from initial, all blocks") +
     theme_case(13)
 pca_dAF
 ```
@@ -5996,7 +5996,7 @@ for (b in blocks) {
   pos  <- read.table(pos_files[[b]], header = FALSE, stringsAsFactors = FALSE)
   rows <- rownames(src) %in% paste(pos[, 1], pos[, 2], sep = ".")
   cat(sprintf("  %s: %d of %d outlier loci retained by .pos filter\n", b, sum(rows), nrow(src)))
-  p <- run_pca(src[rows, idx, drop = FALSE], paste0("Outlier loci — ", b), shape = spawn_shapes[[b]])
+  p <- run_pca(src[rows, idx, drop = FALSE], paste0("Outlier loci: ", b), shape = spawn_shapes[[b]])
   # guides(fill = "none") (layer-level) survives the figure-wide `& theme(...)` in fig2-assemble.
   if (b != "B10") p <- p + guides(fill = "none")   # only B10 keeps the Treatment legend
   block_pcas[[b]] <- p
@@ -6113,7 +6113,7 @@ lab[, `:=`(y = ymax * ymax_mult[as.character(treatment)],
            txt = sprintf("%.1fx vs CON\n(p=%.4f)", enrich_vs_CON, p_CON))]
 # Lollipop instead of grouped bars: a stem to each value + a point, dodged by series.
 dodge <- position_dodge(width = 0.6)
-fig3b <- ggplot(plt, aes(treatment, n, colour = src, group = src)) +
+fig2b <- ggplot(plt, aes(treatment, n, colour = src, group = src)) +
   geom_linerange(aes(ymin = 0, ymax = n), position = dodge, linewidth = 0.7) +
   geom_point(position = dodge, size = 3.4) +
   geom_text(data = lab, inherit.aes = FALSE, aes(treatment, y, label = txt),
@@ -6139,7 +6139,7 @@ coup <- merge(leth, core_res[level == "locus", .(treatment, enrich_vs_CON)],
               by.x = "Treatment", by.y = "treatment")
 coup[, Treatment := factor(Treatment, levels = c("CA","SE","CASE"))]
 setorder(coup, excess_mort)
-fig3c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
+fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   geom_line(linetype = "dashed", colour = "grey50", linewidth = 0.6) +
   geom_point(aes(fill = Treatment), shape = 21, size = 8, colour = "black", alpha = 0.9) +
   geom_text(aes(label = Treatment), vjust = -1.6, size = 4.5) +
@@ -6152,7 +6152,7 @@ fig3c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   theme_case(13) + theme(legend.position = "none", plot.title.position = "plot")
 ```
 
-## 2.3 Within-gene allele turnover (3E-A) — same genes, different SNPs
+## 2.3 Within-gene allele turnover (3E-A): same genes, different SNPs
 
 ``` r
   # TRUE CASE outliers only = SNPs in the tier sets (Core/Convergent/Private) with
@@ -6220,12 +6220,12 @@ DDEEFF
 GGGGGH
 "
 fig2 <-  block_pcas$B10 + block_pcas$B11 + block_pcas$B12 + pca_dAF +
-          fig3b + fig3c + free(turnover) + guide_area() +
+          fig2b + fig2c + free(turnover) + guide_area() +
           plot_layout(design = design2, guides = "collect") +   # collect legends into the H guide area
           plot_annotation(tag_levels = list(c("A","B","C","D","E","F","G",""))) &
           # legend.position = "right" -> vertical direction by default, suits the narrow
           # guide_area column (H) better than "bottom". Per-plot guides(fill/shape = "none")
-          # (set on B11/B12 PCAs and fig3c) survive this `&` theme since guides() is
+          # (set on B11/B12 PCAs and fig2c) survive this `&` theme since guides() is
           # layer-level, not a theme element, so it can't be overridden here.
           theme(legend.position = "right",
                 legend.direction = "vertical",
@@ -6239,7 +6239,7 @@ fig2
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig2-assemble-1.png)<!-- -->
 
-## Fig S3 — Genome-wide PCA (10,000 random loci)
+## Fig S3. Genome-wide PCA (10,000 random loci)
 
 ``` r
 afr_t <- t(input.all.rand.af)
@@ -6261,16 +6261,16 @@ p_s2_spawn <- ggplot(dr, aes(PC1, PC2, fill = Spawn)) +
 # VennDiagram grob drops cleanly into the patchwork, the same approach used for the Fig 1 schematic.
 venn_panel <- patchwork::wrap_elements(full = grid::rasterGrob(png::readPNG("VenSNPs.png"),
                                                                interpolate = TRUE))
-figS2 <- venn_panel + p_s2_treat + p_s2_spawn +
+figS3 <- venn_panel + p_s2_treat + p_s2_spawn +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S3 — Called-SNP overlap and genome-wide PCA (10,000 random loci)")
-save_supp(figS2, "FigS3_genomewide_PCA.png", width = 18, height = 5.5)
-figS2
+                  title = "Fig S3. Called-SNP overlap and genome-wide PCA (10,000 random loci)")
+save_supp(figS3, "FigS3_genomewide_PCA.png", width = 18, height = 5.5)
+figS3
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS2-genomewide-pca-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS3-genomewide-pca-1.png)<!-- -->
 
-## Fig S4 — Tier-specific PCA
+## Fig S4. Tier-specific PCA
 
 ## Tier-specific PCA
 
@@ -6348,7 +6348,7 @@ run_tier_pca <- function(sync_file, tier_label, out_prefix) {
           axis.title.y = element_text(size = 24)),
     labs(x = paste0("PC1 (", round(var_exp[1], 1), "%)"),
          y = paste0("PC2 (", round(var_exp[2], 1), "%)"),
-         title = paste0("PCA — ", tier_label))
+         title = paste0("PCA: ", tier_label))
   )
 
   p_treat <- ggplot(pca_df, aes(x = PC1, y = PC2,
@@ -6439,15 +6439,15 @@ print(pca.priv$p_treat)
 ![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-59-3.png)<!-- -->
 
 ``` r
-figS3 <- (pca.core$p_treat + pca.conv$p_treat + pca.priv$p_treat) +
+figS4 <- (pca.core$p_treat + pca.conv$p_treat + pca.priv$p_treat) +
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S4 — Tier-specific PCA (treatment-coloured): Core | Convergent | Private")
-save_supp(figS3, "FigS4_tier_PCA.png", width = 16, height = 5.5)
-figS3
+                  title = "Fig S4. Tier-specific PCA (treatment-coloured): Core | Convergent | Private")
+save_supp(figS4, "FigS4_tier_PCA.png", width = 16, height = 5.5)
+figS4
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS3-tier-pca-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS4-tier-pca-1.png)<!-- -->
 
 # Fig 3. Additivity of allele-frequency change
 
@@ -6591,7 +6591,7 @@ bg <- rbindlist(lapply(add_lev, function(L) { d <- add_pl[SNP %in% bg_snps, .(x,
 bg[, panel := factor(panel, levels = add_lev)]
 ann <- add_fitdt[add_catsum, on = "panel"][, lab := sprintf("slope %.2f\n%.0f%% above 1:1", slope, 100 * frac_supra)]
 
-fig3_add <- ggplot(mapping = aes(x, y)) +
+fig3 <- ggplot(mapping = aes(x, y)) +
   geom_bin2d(data = bg, bins = 50) +
   scale_fill_gradient(name = sprintf("non-outlier loci", length(bg_snps)),
                       low = "grey92", high = "grey55", trans = "log10") +
@@ -6610,16 +6610,16 @@ fig3_add <- ggplot(mapping = aes(x, y)) +
        title = "Fig 3. Additivity of allele-frequency change",
        subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = block") +
   theme_case(12)
-fig3_add
+fig3
 ```
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig3-additivity-1.png)<!-- -->
 
 ``` r
-save_case(fig3_add, "Fig3_magnitude_additivity.png", width = 11, height = 7)
+save_case(fig3, "Fig3_magnitude_additivity.png", width = 11, height = 7)
 ```
 
-## Fig S5 — Additivity scatter faceted by replication tier
+## Fig S5. Additivity scatter faceted by replication tier
 
 Robustness of Fig 3 across the replication tiers (Core / Convergent /
 Private), reporting OLS alongside the orthogonal fit so the steeper
@@ -6752,7 +6752,7 @@ print(tier_summary)
 rng_t <- quantile(c(add_pl_t$x, add_pl_t$y), c(0.001, 0.999), na.rm = TRUE)
 ann_t  <- fit_t[, .(tier, lab = sprintf("OLS %.2f | orth %.2f\n%.0f%% above | r=%.2f",
                                         ols_slope, orth_slope, pct_supra, r))]
-figS5_add <- ggplot(add_pl_t, aes(x, y)) +
+figS5 <- ggplot(add_pl_t, aes(x, y)) +
   geom_bin2d(data = bg, bins = 200) +
   geom_point(data = add_pl_t, aes(colour = BLOCK), size = 1.5, alpha = 0.5) +
   scale_colour_manual(name = "block", values = spawn_cols) +
@@ -6768,8 +6768,8 @@ figS5_add <- ggplot(add_pl_t, aes(x, y)) +
        title = "Fig S5. Control-anchored additivity by replication tier",
        subtitle = "dashed = 1:1;  solid = OLS;  dotted = orthogonal") +
   theme_case(12)
-save_supp(figS5_add, "FigS5_additivity_by_tier.png", width = 11, height = 4.5)
-figS5_add
+save_supp(figS5, "FigS5_additivity_by_tier.png", width = 11, height = 4.5)
+figS5
 ```
 
 ![](Final_reproducible_analysis_files/figure-gfm/figS5-additivity-tier-1.png)<!-- -->
@@ -6872,43 +6872,43 @@ manhattan_block <- function(pv_df, block_num, treatment_col, qcolumn, base_color
 ``` r
 # y capped at 20 for all three; the two CHR5 points above 20 are control-filtered and
 # noted in the legend rather than shown.
-m12_ca   <- manhattan_block(pv_list$B12, 12, "Sig.CA",   "QCA",   "#E69F00", title = "B12 — CA",   ylim = c(0, 20))
-m12_se   <- manhattan_block(pv_list$B12, 12, "Sig.SE",   "QSE",   "#0072B2", title = "B12 — SE",   ylim = c(0, 20))
-m12_case <- manhattan_block(pv_list$B12, 12, "Sig.CASE", "QCASE", "#009E73", title = "B12 — CASE", ylim = c(0, 20))
-fig3_man <- (m12_ca / m12_se / m12_case) & theme(plot.margin = margin(0, 0, 0, 0))
-fig3_man
+m12_ca   <- manhattan_block(pv_list$B12, 12, "Sig.CA",   "QCA",   "#E69F00", title = "B12, CA",   ylim = c(0, 20))
+m12_se   <- manhattan_block(pv_list$B12, 12, "Sig.SE",   "QSE",   "#0072B2", title = "B12, SE",   ylim = c(0, 20))
+m12_case <- manhattan_block(pv_list$B12, 12, "Sig.CASE", "QCASE", "#009E73", title = "B12, CASE", ylim = c(0, 20))
+fig4_man <- (m12_ca / m12_se / m12_case) & theme(plot.margin = margin(0, 0, 0, 0))
+fig4_man
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig3-manhattan-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig4-manhattan-1.png)<!-- -->
 
-## 4.1b Per-spawn Manhattan stacks (B10, B11) — supplement
+## 4.1b Per-spawn Manhattan stacks (B10, B11): supplement
 
 Same stacked layout as Fig 4A (B12), for the other two sequenced spawns.
 y capped at 20 for cross-spawn comparability with the main figure.
 
 ``` r
 mk_manhattan_stack <- function(block_pv, bn, ymax) {
-  ca   <- manhattan_block(block_pv, bn, "Sig.CA",   "QCA",   "#E69F00", title = paste0("B", bn, " — CA"),   ylim = c(0, ymax))
-  se   <- manhattan_block(block_pv, bn, "Sig.SE",   "QSE",   "#0072B2", title = paste0("B", bn, " — SE"),   ylim = c(0, ymax))
-  case <- manhattan_block(block_pv, bn, "Sig.CASE", "QCASE", "#009E73", title = paste0("B", bn, " — CASE"), ylim = c(0, ymax))
+  ca   <- manhattan_block(block_pv, bn, "Sig.CA",   "QCA",   "#E69F00", title = paste0("B", bn, ", CA"),   ylim = c(0, ymax))
+  se   <- manhattan_block(block_pv, bn, "Sig.SE",   "QSE",   "#0072B2", title = paste0("B", bn, ", SE"),   ylim = c(0, ymax))
+  case <- manhattan_block(block_pv, bn, "Sig.CASE", "QCASE", "#009E73", title = paste0("B", bn, ", CASE"), ylim = c(0, ymax))
   (ca / se / case) & theme(plot.margin = margin(10, 0, 0, 0))
 }
-figS5 <- mk_manhattan_stack(pv_list$B10, 10,40)
-save_supp(figS5, "FigS7_B10_manhattan_3stressor.png", width = 11, height = 10)
-figS5
+figS7 <- mk_manhattan_stack(pv_list$B10, 10,40)
+save_supp(figS7, "FigS7_B10_manhattan_3stressor.png", width = 11, height = 10)
+figS7
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS5-S6-manhattan-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS7-S8-manhattan-1.png)<!-- -->
 
 ``` r
-figS6 <- mk_manhattan_stack(pv_list$B11, 11,12)
-save_supp(figS6, "FigS8_B11_manhattan_3stressor.png", width = 11, height = 10)
-figS6
+figS8 <- mk_manhattan_stack(pv_list$B11, 11,12)
+save_supp(figS8, "FigS8_B11_manhattan_3stressor.png", width = 11, height = 10)
+figS8
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS5-S6-manhattan-2.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS7-S8-manhattan-2.png)<!-- -->
 
-## 4.2 GO enrichment — custom plot from the TopGO CSVs
+## 4.2 GO enrichment: custom plot from the TopGO CSVs
 
 ``` r
 # Built directly from GO/<stressor>_GO_en_sig_gene.csv (topGO): one point per enriched GO
@@ -6982,9 +6982,9 @@ godat <- rbindlist(lapply(names(go_files), function(tr) {
 go_panel
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig3-go-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig4-go-1.png)<!-- -->
 
-## 4.3 One Venn — SNP and gene counts together (custom ggplot)
+## 4.3 One Venn: SNP and gene counts together (custom ggplot)
 
 ``` r
 # One triple Venn that carries BOTH counts per region: big number = SNPs, (parenthesised) =
@@ -7062,27 +7062,27 @@ venn_combined <- ggplot() +
 venn_combined
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig3-venn-combined-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig4-venn-combined-1.png)<!-- -->
 
-## 4.4b Mechanism panel D — data-driven stress GO clusters
+## 4.4b Mechanism panel D: data-driven stress GO clusters
 
 ``` r
 sm <- melt(go_clusters_stress[, .(cluster, CA, SE, CASE, minF)],
            id.vars = c("cluster","minF"), variable.name = "Treatment", value.name = "n")
 sm[, cluster   := factor(cluster, levels = rev(go_clusters_stress[order(minF), cluster]))]
 sm[, Treatment := factor(Treatment, levels = c("CA","SE","CASE"))]
-fig3d <- ggplot(sm, aes(Treatment, cluster, fill = Treatment, alpha = n)) +
+fig4d <- ggplot(sm, aes(Treatment, cluster, fill = Treatment, alpha = n)) +
   geom_tile(colour = "white", linewidth = 0.6) +
   geom_text(aes(label = n), size = 3.4, colour = "grey15", alpha = 1) +
   scale_fill_manual(values = c(CA = "#E69F00", SE = "#0072B2", CASE = "#009E73"), guide = "none") +
   scale_alpha(range = c(0.15, 1), name = "enriched\nGO terms") +
-  labs(x = NULL, y = NULL, title = "Mechanism by stressor — data-driven GO clusters") +
+  labs(x = NULL, y = NULL, title = "Mechanism by stressor: data-driven GO clusters") +
   theme_case(12) +
   theme(panel.grid = element_blank(), axis.text.y = element_text(size = 9))
-fig3d
+fig4d
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig3d-clusters-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig4d-clusters-1.png)<!-- -->
 
 ## 4.5 Assemble Fig 4 (patchwork)
 
@@ -7091,7 +7091,7 @@ fig3d
 # Venn, and heatmap are native ggplots and drop in directly.
 # Both the Manhattan and GO panels are nested 3-plot stacks -> wrap each as one area so
 # their three sub-rows line up at equal height.
-man_el <- patchwork::wrap_elements(fig3_man)
+man_el <- patchwork::wrap_elements(fig4_man)
 go_el <- patchwork::wrap_elements(full=go_panel)
 
 
@@ -7105,15 +7105,15 @@ AAB
 AAB
 CDD
 "
-fig3 <- man_el + go_el + venn_combined + fig3d +
+fig4 <- man_el + go_el + venn_combined + fig4d +
   plot_layout(design = design3) +
   plot_annotation(tag_levels = "A") &
   theme(plot.title = element_text(size = 12))
-save_case(fig3, "Fig4_compositional_synergy.png", width = 16, height = 15)
-# fig3
+save_case(fig4, "Fig4_compositional_synergy.png", width = 16, height = 15)
+# fig4
 ```
 
-## Fig S6 — Per-spawn outlier overlap (Venns)
+## Fig S6. Per-spawn outlier overlap (Venns)
 
 ``` r
 spawn_venn_grob <- function(b) {
@@ -7132,18 +7132,18 @@ spawn_venn_grob <- function(b) {
     grid::grid.text(b, y = 0.98, gp = grid::gpar(fontface = "bold", cex = 1.4))
   })
 }
-figS4 <- patchwork::wrap_elements(spawn_venn_grob("B10")) +
+figS6 <- patchwork::wrap_elements(spawn_venn_grob("B10")) +
          patchwork::wrap_elements(spawn_venn_grob("B11")) +
          patchwork::wrap_elements(spawn_venn_grob("B12")) +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S6 — Per-spawn outlier overlap across stressors (CA / SE / CASE)")
-save_supp(figS4, "FigS6_spawn_venns.png", width = 15, height = 5.5)
-figS4
+                  title = "Fig S6. Per-spawn outlier overlap across stressors (CA / SE / CASE)")
+save_supp(figS6, "FigS6_spawn_venns.png", width = 15, height = 5.5)
+figS6
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS4-spawn-venns-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS6-spawn-venns-1.png)<!-- -->
 
-## Fig S9 — Full GO enrichment by stressor (topGO)
+## Fig S9. Full GO enrichment by stressor (topGO)
 
 One figure per category (ALL / CA / SE / CASE); the curated subset is in
 Fig 4.
@@ -7169,7 +7169,7 @@ plot_go_full <- function(file, label, fignum) {
     scale_fill_continuous(low = "#1AD3D1FF", high = "#4686FBFF", name = "-log(Fisher)") +
     xlab('') +
     ylab('Enrichment score') +
-    ggtitle(paste0("Fig ", fignum, " — ", label, " enriched GO terms")) +
+    ggtitle(paste0("Fig ", fignum, ". ", label, " enriched GO terms")) +
     theme_case(11) +
     theme(axis.text.y = element_text(size = 6)) +
     facet_grid(vars(ontology), scales = "free", space = "free_y") +
@@ -7182,9 +7182,9 @@ for (tr in names(go_full_files)) {
 }
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS7-go-full-1.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS7-go-full-2.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS7-go-full-3.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS7-go-full-4.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS9-S12-go-full-1.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS9-S12-go-full-2.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS9-S12-go-full-3.png)<!-- -->![](Final_reproducible_analysis_files/figure-gfm/figS9-S12-go-full-4.png)<!-- -->
 
-## Fig S13 — GO-term overlap and biological-theme enrichment
+## Fig S13. GO-term overlap and biological-theme enrichment
 
 ``` r
 # Collapse gene x term -> unique GO terms (best Fisher per term).
@@ -7353,17 +7353,17 @@ p_clust_tier <- ggplot(bk, aes(Tier, cluster, fill = Tier, alpha = n)) +
   scale_alpha(range = c(0.12, 1), name = "GO terms") +
   labs(x = NULL, y = NULL, title = "By tier") +
   theme_case(11) + theme(panel.grid = element_blank(), axis.text.y = element_blank())
-figS11 <- patchwork::wrap_elements(venn_grob) + p_clust_trt + p_clust_tier +
+figS13 <- patchwork::wrap_elements(venn_grob) + p_clust_trt + p_clust_tier +
   plot_layout(widths = c(1, 1.1, 0.9)) +
   plot_annotation(tag_levels = "A",
-                  title = "Fig S13 — GO-term overlap and data-driven cluster enrichment (by stressor and by tier)")
-save_supp(figS11, "FigS13_GO_synthesis.png", width = 16, height = 7)
-figS11
+                  title = "Fig S13. GO-term overlap and data-driven cluster enrichment (by stressor and by tier)")
+save_supp(figS13, "FigS13_GO_synthesis.png", width = 16, height = 7)
+figS13
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS11-assemble-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS13-assemble-1.png)<!-- -->
 
-# Fig 5 — Diversity, architecture, and convergent function (CA / SE / CASE)
+# Fig 5. Diversity, architecture, and convergent function (CA / SE / CASE)
 
 ``` r
 treat_levels <- c("CON","CA","SE","CASE")   # restored (the GO helpers above redefine it locally)
@@ -7449,7 +7449,7 @@ fwrite(he_tier_dt, file.path(tab_dir, "Fig5_He_by_tier.csv"))
 
 y.expression <- expression(H[E])
 
-fig4_he_panel <- ggplot(he_tier_dt, aes(treatment, excess, fill = treatment)) +
+fig5_he_panel <- ggplot(he_tier_dt, aes(treatment, excess, fill = treatment)) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
   geom_boxplot(alpha = 0.55, outlier.shape = NA, colour = "black", width = 0.6) +
   geom_jitter(aes(shape = block), width = 0.12, height = 0, size = 2.2, alpha = 0.85) +
@@ -7459,10 +7459,10 @@ fig4_he_panel <- ggplot(he_tier_dt, aes(treatment, excess, fill = treatment)) +
   labs(x = NULL, y = expression("Excess" ~ italic(H[E]) ~ "compared to CON")) +
   theme_case(12) +
   theme(strip.background = element_blank(), strip.text = element_text(face = "bold"), legend.direction = "horizontal", legend.position = "bottom",panel.spacing = unit(1, "lines"), axis.title.y = element_text(size=10, margin = margin(t = 0, r = 0, b = 0, l = 0)), plot.margin = margin(t = -0, r = 0, b = 0, l = -0, unit = "pt"))
-fig4_he_panel
+fig5_he_panel
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig4-he-tier-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig5-he-tier-1.png)<!-- -->
 
 ``` r
 # Frequency/shift-matched neutral null for the CON-anchored He excess, per tier x treatment,
@@ -7566,33 +7566,33 @@ print(he_null_dt)
     ## 9: 0.07742953
 
 ``` r
-# overlay the matched-null band (2.5-97.5%) and z on the observed He panel (rebuilds fig4_he_panel)
-fig4_he_panel <- fig4_he_panel +
+# overlay the matched-null band (2.5-97.5%) and z on the observed He panel (rebuilds fig5_he_panel)
+fig5_he_panel <- fig5_he_panel +
   geom_crossbar(data = he_null_dt, aes(x = treatment, y = null_mean, ymin = band_lo, ymax = band_hi),
                 inherit.aes = FALSE, width = 0.5, fill = "grey80", colour = "grey55", alpha = 0.45) +
   geom_text(data = he_null_dt, aes(x = treatment, y = band_hi, label = sprintf("z=%.1f", z)),
             inherit.aes = FALSE, vjust = -0.5, size = 2.6)
-fig4_he_panel
+fig5_he_panel
 ```
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig5-he-null-1.png)<!-- -->
 
 ``` r
-figS13 <- (ggplot(he_null_dt, aes(treatment, z, fill = treatment)) +
+figS14 <- (ggplot(he_null_dt, aes(treatment, z, fill = treatment)) +
              geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
              geom_col(alpha = 0.85) + facet_wrap(~ tier) +
              scale_fill_manual(values = unlist(treat_cols[c("CA","SE","CASE")])) +
-             labs(title = "Fig S14A — He excess relative to the frequency/shift-matched null (z)",
+             labs(title = "Fig S14A. He excess relative to the frequency/shift-matched null (z)",
                   x = NULL, y = "z") + theme_case(11) + theme(legend.position = "none")) /
            (ggplot(he_diag_dt, aes(treatment, pct_matched, fill = block)) +
              geom_col(position = "dodge") + facet_wrap(~ tier) +
-             labs(title = "Fig S14B — matched-null retention (% of outliers with a shift-matched neutral)",
+             labs(title = "Fig S14B. Matched-null retention (% of outliers with a shift-matched neutral)",
                   x = NULL, y = "% matched") + theme_case(11))
-save_supp(figS13, "FigS14_He_null_diagnostics.png", width = 9, height = 8)
-figS13
+save_supp(figS14, "FigS14_He_null_diagnostics.png", width = 9, height = 8)
+figS14
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/figS13-he-null-diag-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS14-he-null-diag-1.png)<!-- -->
 
 ``` r
 # Per-tier composite: 2D KDE (points coloured by stressor) with MAF0 (top) and |dAF|
@@ -7641,13 +7641,13 @@ arch_panel_tier <- function(tr, leg = FALSE) {
   patch[[3]] <- patch[[3]] + plot_annotation(tag_levels = 'A')
   patch
 }
-fig4_arch <- (arch_panel_tier("Core") | arch_panel_tier("Convergent", leg = TRUE) | arch_panel_tier("Private"))
+fig5_arch <- (arch_panel_tier("Core") | arch_panel_tier("Convergent", leg = TRUE) | arch_panel_tier("Private"))
 # Stack the tier-architecture row (top) over the diversity-at-selected-loci panel (bottom).
 # wrap_elements keeps the nested architecture row as one element so the bottom panel does not get
 # pulled into its 2x2 layout. Heights/tags may want a visual tweak after knitting.
-fig4 <- patchwork::wrap_elements(plot = fig4_arch) / (fig4_he_panel)+
+fig5 <- patchwork::wrap_elements(plot = fig5_arch) / (fig5_he_panel)+
   plot_layout(heights = c(2, 1.5)) + plot_annotation(tag_levels = 'A')
-save_case(fig4, "Fig5_architecture_density2d.png", width = 14, height = 9)
+save_case(fig5, "Fig5_architecture_density2d.png", width = 14, height = 9)
 ```
 
     ## Picking joint bandwidth of 0.00804
@@ -7657,7 +7657,7 @@ save_case(fig4, "Fig5_architecture_density2d.png", width = 14, height = 9)
     ## Picking joint bandwidth of 0.0116
 
 ``` r
-fig4
+fig5
 ```
 
     ## Picking joint bandwidth of 0.00804
@@ -7666,9 +7666,9 @@ fig4
 
     ## Picking joint bandwidth of 0.0116
 
-![](Final_reproducible_analysis_files/figure-gfm/fig4-density2d-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/fig5-density2d-1.png)<!-- -->
 
-## Fig S15 — Top enriched GO terms per tier (topGO)
+## Fig S15. Top enriched GO terms per tier (topGO)
 
 ``` r
 # Top enriched GO terms per tier (Core/Convergent/Private), all stressors pooled,
@@ -7705,27 +7705,27 @@ plot_go_lollipop <- function(file, label, top_n = 10, leg = FALSE) {
 }
 
 
-fig5 <- (free(plot_go_lollipop(go_tier_files[["Core"]], "Core"), type= "label") /
+figS15 <- (free(plot_go_lollipop(go_tier_files[["Core"]], "Core"), type= "label") /
   free(plot_go_lollipop(go_tier_files[["Convergent"]], "Convergent") , type = "label")/
   free(plot_go_lollipop(go_tier_files[["Private"]], "Private", leg = TRUE), type="label")) / guide_area() + plot_layout(guides = "collect", heights = c(3,3,3,1))
-fig5 <- fig5 + plot_annotation(title = "Fig S15 — top enriched GO terms by tier (all stressors pooled)") & theme(legend.box = "horizontal", legend.box.margin = margin(0, 0, -20, -100), legend.key.spacing.x = unit(3.0, "cm"))
-save_supp(fig5, "FigS15_GO_by_tier.png", width = 7, height = 11)
-fig5
+figS15 <- figS15 + plot_annotation(title = "Fig S15. Top enriched GO terms by tier (all stressors pooled)") & theme(legend.box = "horizontal", legend.box.margin = margin(0, 0, -20, -100), legend.key.spacing.x = unit(3.0, "cm"))
+save_supp(figS15, "FigS15_GO_by_tier.png", width = 7, height = 11)
+figS15
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig5-go-lollipop-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS15-go-lollipop-1.png)<!-- -->
 
-## Fig S16 — Tier architecture by spawn (3x3)
+## Fig S16. Tier architecture by spawn (3x3)
 
 ``` r
-# Same composite cell (2D scatter + MAF0/|dAF| marginals) as fig4, but faceted into a
+# Same composite cell (2D scatter + MAF0/|dAF| marginals) as fig5, but faceted into a
 # 3x3 grid: rows = spawn (B10/B11/B12), cols = treatment (CA/SE/CASE). Density marginals
 # kept on every cell per request (no outer-row/col-only trimming).
 arch_panel_spawn <- function(trt, blk, leg = FALSE) {
   d <- arch[treatment == trt & block == blk]
   center <- ggplot(d, aes(MAF0, abs_dAF, colour = tier, group = tier)) +
     geom_point(aes(alpha = tier), size = 1, stroke = 0.5) +
-    annotate("text", x = -Inf, y = Inf, label = paste0(blk, " — ", trt), hjust = -0.15, vjust = 1.4,
+    annotate("text", x = -Inf, y = Inf, label = paste0(blk, ", ", trt), hjust = -0.15, vjust = 1.4,
              fontface = "bold", size = 4.0) +
     scale_colour_manual(values = tier_cols, drop = FALSE, name = "Tier") +
     scale_alpha_manual(values = c(0.1, 0.2, 0.2), guide = "none") +
@@ -7751,20 +7751,20 @@ spawn_rows <- c("B10", "B11", "B12")
 treat_cols_fig4 <- c("CA", "SE", "CASE")
 
 # single shared legend: turn it on for the B12/SE cell (bottom row, middle column)
-fig4_grid <- lapply(spawn_rows, function(blk) {
+figS16_grid <- lapply(spawn_rows, function(blk) {
   cells <- lapply(treat_cols_fig4, function(trt) {
     arch_panel_spawn(trt, blk, leg = (blk == "B12" && trt == "SE"))
   })
   wrap_plots(cells, nrow = 1)
 })
 
-fig4_byspawn <- wrap_plots(fig4_grid, ncol = 1) +
-  plot_annotation(title = "Fig S16 — tier architecture by spawn: MAF × |ΔAF| (2D density + marginals)")
-save_supp(fig4_byspawn, "FigS16_architecture_byspawn.png", width = 14, height = 14.5)
-fig4_byspawn
+figS16 <- wrap_plots(figS16_grid, ncol = 1) +
+  plot_annotation(title = "Fig S16. Tier architecture by spawn: MAF × |ΔAF| (2D density + marginals)")
+save_supp(figS16, "FigS16_architecture_byspawn.png", width = 14, height = 14.5)
+figS16
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/fig4-density2d-byspawn-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/figS16-density2d-byspawn-1.png)<!-- -->
 
 # Supplementary tables
 
@@ -7804,7 +7804,7 @@ for (tr in names(loc_src))
   file.copy(loc_src[[tr]], file.path(tab_dir, paste0("TableS4_candidate_genes_", tr, ".txt")), overwrite = TRUE)
 ```
 
-## Table S3 — GO enrichment terms by stressor (one row per term)
+## Table S3: GO enrichment terms by stressor (one row per term)
 
 The Fig S8-S10 dot plots are dense; the tables below give the same topGO
 results (deduplicated to one row per GO term) in a readable form, sorted
@@ -7829,10 +7829,10 @@ if (nrow(go_all)) {
   for (tr in c("ALL", "CA", "SE", "CASE")) {
     d <- go_term_table(go_all, tr)
     if (nrow(d) > 0) {
-      cat(paste0("\n### Table S3", go_table_letters[[tr]], " — ",
+      cat(paste0("\n### Table S3", go_table_letters[[tr]], ". ",
                  go_table_labels[[tr]], "\n\n"))
       print(kable(d, row.names = FALSE,
-                   caption = paste0("GO enrichment terms — ", go_table_labels[[tr]])) %>%
+                   caption = paste0("GO enrichment terms: ", go_table_labels[[tr]])) %>%
               kable_styling(full_width = FALSE, font_size = 9, latex_options = "scale_down") %>%
               scroll_box(height = "400px"))
     }
@@ -7840,13 +7840,13 @@ if (nrow(go_all)) {
 }
 ```
 
-### Table S3a — All Outlier Loci
+### Table S3a. All Outlier Loci
 
 <div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:400px; ">
 
 <table class="table" style="font-size: 9px; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-GO enrichment terms — All Outlier Loci
+GO enrichment terms: All Outlier Loci
 </caption>
 <thead>
 <tr>
@@ -11400,13 +11400,13 @@ Molecular Functions
 
 </div>
 
-### Table S3b — CA Stressor
+### Table S3b. CA Stressor
 
 <div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:400px; ">
 
 <table class="table" style="font-size: 9px; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-GO enrichment terms — CA Stressor
+GO enrichment terms: CA Stressor
 </caption>
 <thead>
 <tr>
@@ -13785,13 +13785,13 @@ Molecular Functions
 
 </div>
 
-### Table S3c — SE Stressor
+### Table S3c. SE Stressor
 
 <div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:400px; ">
 
 <table class="table" style="font-size: 9px; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-GO enrichment terms — SE Stressor
+GO enrichment terms: SE Stressor
 </caption>
 <thead>
 <tr>
@@ -17137,13 +17137,13 @@ Biological Processes
 
 </div>
 
-### Table S3d — CASE Stressor (CA+SE)
+### Table S3d. CASE Stressor (CA+SE)
 
 <div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:400px; ">
 
 <table class="table" style="font-size: 9px; width: auto !important; margin-left: auto; margin-right: auto;">
 <caption style="font-size: initial !important;">
-GO enrichment terms — CASE Stressor (CA+SE)
+GO enrichment terms: CASE Stressor (CA+SE)
 </caption>
 <thead>
 <tr>
@@ -22055,7 +22055,7 @@ Cellular Components
 
 </div>
 
-## Table 1 — All data-driven GO clusters (main text)
+## Table 1: All data-driven GO clusters (main text)
 
 ``` r
 knitr::kable(go_clusters_full,
