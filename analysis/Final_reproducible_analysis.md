@@ -1,7 +1,7 @@
 CASE — Reproducible Analysis (Coastal Acidification & Sewage Effluent)
 ================
 Jonathan Puritz
-2026-07-10
+2026-08-12
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -60,6 +60,7 @@ Jonathan Puritz
       results](#save-tier-specific-topgo-results)
   - [Data-driven GO clusters (mechanism themes for Fig 4D + Table
     S)](#data-driven-go-clusters-mechanism-themes-for-fig-4d--table-s)
+  - [Table 1 and Table S5](#table-1-and-table-s5)
   - [Outlier allele-frequency matrices (for the Fig 2
     PCAs)](#outlier-allele-frequency-matrices-for-the-fig-2-pcas)
 - [Fig 2 — Outlier loci & cross-spawn
@@ -81,14 +82,14 @@ Jonathan Puritz
       function](#all-samples-pca-helper-function)
     - [Run all-samples PCA for each
       tier](#run-all-samples-pca-for-each-tier)
-- [Fig 3 — Magnitude synergy: control-anchored
-  additivity](#fig-3--magnitude-synergy-control-anchored-additivity)
+- [Fig 3. Additivity of allele-frequency
+  change](#fig-3-additivity-of-allele-frequency-change)
   - [3.1 Additivity scatter and per-panel orthogonal
     fits](#31-additivity-scatter-and-per-panel-orthogonal-fits)
   - [Fig S5 — Additivity scatter faceted by replication
     tier](#fig-s5--additivity-scatter-faceted-by-replication-tier)
-- [Fig 4 — Compositional synergy (novel
-  targets)](#fig-4--compositional-synergy-novel-targets)
+- [Fig 4. Treatment-exclusive loci and functional
+  enrichment](#fig-4-treatment-exclusive-loci-and-functional-enrichment)
   - [4.1 Block-12 Manhattan, stacked across CA / SE /
     CASE](#41-block-12-manhattan-stacked-across-ca--se--case)
   - [4.1b Per-spawn Manhattan stacks (B10, B11) —
@@ -125,11 +126,11 @@ Jonathan Puritz
 
 > Single reproducible pipeline for the CASE study. The document is
 > organized around the five main figures (Fig 1 survival/phenotype → Fig
-> 2 outliers & declining reproducibility → Fig 3 magnitude synergy:
-> control-anchored additivity → Fig 4 compositional synergy: novel
-> targets → Fig 5 diversity, architecture & convergent function); a
-> shared genomic-substrate section precedes the figures because Figs 2–5
-> all depend on the same allele-frequency, CMH and locus-tier objects.
+> 2 outliers & declining reproducibility → Fig 3 additivity of
+> allele-frequency change → Fig 4 treatment-exclusive loci → Fig 5
+> diversity, architecture & convergent function); a shared
+> genomic-substrate section precedes the figures because Figs 2–5 all
+> depend on the same allele-frequency, CMH and locus-tier objects.
 > Supplementary figures (S1–S15) and tables follow each result. Heavy
 > preprocessing steps that require external tools or large intermediate
 > files are kept as `eval=FALSE` documented commands.
@@ -5731,8 +5732,12 @@ cl_sum[, cluster := data.table::fifelse(is.na(category), paste0("Other: ", rep_t
 cl_sum[, stress  := !is.na(category)]
 clG <- merge(clG, cl_sum[, .(cluster_id, cluster, stress, minF)], by = "cluster_id")
 
-go_clusters_full   <- clG[order(minF, Fisher), .(cluster, stress, GO, Term, Fisher, CA, SE, CASE)]
-go_clusters_stress <- cl_sum[stress == TRUE][order(minF), .(cluster, CA, SE, CASE, n, minF)]
+cl_sum[, case_only := (CA == 0L & SE == 0L)]
+clG <- merge(clG, cl_sum[, .(cluster_id, case_only)], by = "cluster_id")
+go_clusters_full   <- clG[order(minF, Fisher),
+                          .(cluster_id, cluster, stress, case_only, GO, Term, Fisher, CA, SE, CASE)]
+go_clusters_stress <- cl_sum[stress == TRUE][order(minF),
+                          .(cluster_id, cluster, CA, SE, CASE, n, minF, case_only)]
 
 # all clusters x treatment and x tier (for Fig S12)
 go_clusters_trt <- clG[, .(CA = sum(CA), SE = sum(SE), CASE = sum(CASE),
@@ -5750,6 +5755,68 @@ cat("data-driven clusters:", uniqueN(clG$cluster_id),
 ```
 
     ## data-driven clusters: 18 | stress-highlighted: 10
+
+## Table 1 and Table S5
+
+`Table 1` is the cluster-level summary of the stress-relevant clusters
+printed in the manuscript. `Table S5` is the full member-gene listing
+for every cluster, one row per cluster x term x gene, with the enriched
+stressor sets flagged. Both are derived from `clG`, so they cannot drift
+from the clustering above.
+
+``` r
+## ---- Table 1: stress-relevant clusters, cluster level -----------------------
+rep_terms <- clG[order(Fisher), .(representative_terms = paste(head(Term, 3), collapse = "; ")),
+                 by = cluster_id]
+table1 <- merge(go_clusters_stress, rep_terms, by = "cluster_id")[order(minF)]
+setnames(table1, c("n", "case_only"), c("n_terms", "case_only_cluster"))
+table1[, case_only_cluster := fifelse(case_only_cluster, "yes", "no")]
+fwrite(table1, file.path(tab_dir, "Table1_GO_clusters.csv"))
+
+## ---- Table S5: member genes for every cluster ------------------------------
+## genes are pooled across the three per-stressor GO tables so that CA-only and
+## SE-only clusters are populated too; the three flags record which sets a gene
+## was enriched in.
+go_gene_long <- rbindlist(list(
+  if (!is.null(GO_CA))   data.table(GO = GO_CA$GeneOntologyIDs,   gene_LOC = GO_CA$gene_name,   set = "CA"),
+  if (!is.null(GO_SE))   data.table(GO = GO_SE$GeneOntologyIDs,   gene_LOC = GO_SE$gene_name,   set = "SE"),
+  if (!is.null(GO_CASE)) data.table(GO = GO_CASE$GeneOntologyIDs, gene_LOC = GO_CASE$gene_name, set = "CASE")
+), use.names = TRUE, fill = TRUE)
+
+go_gene_flags <- dcast(unique(go_gene_long), GO + gene_LOC ~ set,
+                       fun.aggregate = length, value.var = "set")
+for (nm in c("CA", "SE", "CASE"))
+  if (!nm %in% names(go_gene_flags)) go_gene_flags[, (nm) := 0L]
+go_gene_flags[, `:=`(enriched_in_CA   = fifelse(CA   > 0L, "yes", "no"),
+                     enriched_in_SE   = fifelse(SE   > 0L, "yes", "no"),
+                     enriched_in_CASE = fifelse(CASE > 0L, "yes", "no"))]
+
+tableS5 <- merge(
+  clG[, .(cluster_id, cluster, stress, case_only, GO, Term, Fisher)],
+  go_gene_flags[, .(GO, gene_LOC, enriched_in_CA, enriched_in_SE, enriched_in_CASE)],
+  by = "GO", allow.cartesian = TRUE)
+tableS5[, `:=`(stress_relevant   = fifelse(stress, "yes", "no"),
+               case_only_cluster = fifelse(case_only, "yes", "no"))]
+tableS5 <- tableS5[order(cluster_id, Fisher, gene_LOC),
+                   .(cluster_id, cluster, stress_relevant, case_only_cluster,
+                     GO, Term, Fisher, gene_LOC,
+                     enriched_in_CA, enriched_in_SE, enriched_in_CASE)]
+fwrite(tableS5, file.path(tab_dir, "TableS5_GO_cluster_member_genes.csv"))
+
+cat("Table 1 rows:", nrow(table1),
+    "| Table S5 rows:", nrow(tableS5),
+    "| unique genes:", uniqueN(tableS5$gene_LOC),
+    "| clusters covered:", uniqueN(tableS5$cluster_id), "\n")
+```
+
+    ## Table 1 rows: 10 | Table S5 rows: 1176 | unique genes: 499 | clusters covered: 18
+
+``` r
+cat("CASE-only clusters:",
+    paste(table1[case_only_cluster == "yes", cluster], collapse = "; "), "\n")
+```
+
+    ## CASE-only clusters: Mitochondrial calcium; Ubiquitin ligase / proteolysis; Steroid / progesterone metabolism
 
 ## Outlier allele-frequency matrices (for the Fig 2 PCAs)
 
@@ -6382,11 +6449,11 @@ figS3
 
 ![](Final_reproducible_analysis_files/figure-gfm/figS3-tier-pca-1.png)<!-- -->
 
-# Fig 3 — Magnitude synergy: control-anchored additivity
+# Fig 3. Additivity of allele-frequency change
 
-Magnitude synergy asks whether the combined-stressor allele-frequency
-change exceeds the *sum* of the single-stressor changes. Both axes are
-anchored on the control to remove the shared lab/handling response — the
+This section asks whether the combined-stressor allele-frequency change
+exceeds the *sum* of the single-stressor changes. Both axes are anchored
+on the control to remove the shared lab/handling response — the
 correction the pool-seq multiple-stressor precedent (Brennan et al.
 2022; Burny & Schlötterer 2022) treats as essential:
 `y = ΔAF_CASE − ΔAF_CON` against
@@ -6540,7 +6607,7 @@ fig3_add <- ggplot(mapping = aes(x, y)) +
   # scale_y_continuous(expand=c(0,0), limits = rng) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
        y = "ΔAF CASE − ΔAF CON   [combined response]",
-       title = "Fig 3 — Magnitude synergy: control-anchored additivity",
+       title = "Fig 3. Additivity of allele-frequency change",
        subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = block") +
   theme_case(12)
 fig3_add
@@ -6698,7 +6765,7 @@ figS5_add <- ggplot(add_pl_t, aes(x, y)) +
             hjust = 0, vjust = 1, size = 2.8, inherit.aes = FALSE) +
   facet_wrap(~ tier) + coord_equal(xlim = rng_t, ylim = rng_t) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)", y = "ΔAF CASE − ΔAF CON",
-       title = "Fig S5 — control-anchored additivity by replication tier",
+       title = "Fig S5. Control-anchored additivity by replication tier",
        subtitle = "dashed = 1:1;  solid = OLS;  dotted = orthogonal") +
   theme_case(12)
 save_supp(figS5_add, "FigS5_additivity_by_tier.png", width = 11, height = 4.5)
@@ -6736,7 +6803,7 @@ ggplot(mapping = aes(x, y)) +
 
 ![](Final_reproducible_analysis_files/figure-gfm/hC-tier-plot-1.png)<!-- -->
 
-# Fig 4 — Compositional synergy (novel targets)
+# Fig 4. Treatment-exclusive loci and functional enrichment
 
 ## 4.1 Block-12 Manhattan, stacked across CA / SE / CASE
 
@@ -21995,132 +22062,132 @@ knitr::kable(go_clusters_full,
              caption = "Table 1. Data-driven GO clusters (all terms; stress flag and per-stressor enrichment). Stress-relevant clusters are shown in Fig 4D.")
 ```
 
-| cluster                                         | stress | GO           | Term                                                              |    Fisher |  CA |  SE | CASE |
-|:------------------------------------------------|:-------|:-------------|:------------------------------------------------------------------|----------:|----:|----:|-----:|
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0030371> | translation repressor activity                                    | 0.0000000 |   1 |   1 |    1 |
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0017148> | negative regulation of translation                                | 0.0000000 |   1 |   1 |    1 |
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0000209> | protein polyubiquitination                                        | 0.0000000 |   1 |   1 |    1 |
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0043161> | proteasome-mediated ubiquitin-dependent protein catabolic process | 0.0000000 |   1 |   1 |    1 |
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0061630> | ubiquitin protein ligase activity                                 | 0.0000000 |   1 |   1 |    1 |
-| Ubiquitin-proteasome / translational repression | TRUE   | <GO:0008270> | zinc ion binding                                                  | 0.0019000 |   1 |   1 |    0 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0003735> | structural constituent of ribosome                                | 0.0000000 |   1 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0022625> | cytosolic large ribosomal subunit                                 | 0.0000001 |   0 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0022627> | cytosolic small ribosomal subunit                                 | 0.0000049 |   1 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0003723> | RNA binding                                                       | 0.0001000 |   0 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0006412> | translation                                                       | 0.0012900 |   1 |   0 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0070181> | small ribosomal subunit rRNA binding                              | 0.0057000 |   0 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0002181> | cytoplasmic translation                                           | 0.0098800 |   0 |   1 |    1 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0000028> | ribosomal small subunit assembly                                  | 0.0134900 |   1 |   0 |    0 |
-| Other: structural constituent of ribosome       | FALSE  | <GO:0048027> | mRNA 5’-UTR binding                                               | 0.0151400 |   0 |   0 |    1 |
-| Translation initiation                          | TRUE   | <GO:0003729> | mRNA binding                                                      | 0.0000000 |   0 |   1 |    1 |
-| Translation initiation                          | TRUE   | <GO:0003743> | translation initiation factor activity                            | 0.0000180 |   0 |   0 |    1 |
-| Translation initiation                          | TRUE   | <GO:0002188> | translation reinitiation                                          | 0.0066700 |   0 |   0 |    1 |
-| Translation initiation                          | TRUE   | <GO:0048024> | regulation of mRNA splicing, via spliceosome                      | 0.0101700 |   0 |   1 |    1 |
-| Translation initiation                          | TRUE   | <GO:0001732> | formation of cytoplasmic translation initiation complex           | 0.0129100 |   0 |   0 |    1 |
-| Translation initiation                          | TRUE   | <GO:0001731> | formation of translation preinitiation complex                    | 0.0410500 |   0 |   0 |    1 |
-| Translation initiation                          | TRUE   | <GO:0016281> | eukaryotic translation initiation factor 4F complex               | 0.0434600 |   0 |   0 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0051082> | unfolded protein binding                                          | 0.0000044 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0005832> | chaperonin-containing T-complex                                   | 0.0001200 |   0 |   1 |    0 |
-| Protein folding / chaperone                     | TRUE   | <GO:0006457> | protein folding                                                   | 0.0001400 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0005524> | ATP binding                                                       | 0.0004700 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0016887> | ATPase activity                                                   | 0.0005500 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0050821> | protein stabilization                                             | 0.0029000 |   0 |   1 |    0 |
-| Protein folding / chaperone                     | TRUE   | <GO:0051959> | dynein light intermediate chain binding                           | 0.0034600 |   1 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0008569> | ATP-dependent microtubule motor activity, minus-end-directed      | 0.0068000 |   1 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0030433> | ubiquitin-dependent ERAD pathway                                  | 0.0075000 |   0 |   0 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0030970> | retrograde protein transport, ER to cytosol                       | 0.0106000 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0008017> | microtubule binding                                               | 0.0122700 |   0 |   1 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0030286> | dynein complex                                                    | 0.0191900 |   0 |   0 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0007018> | microtubule-based movement                                        | 0.0283900 |   0 |   0 |    1 |
-| Protein folding / chaperone                     | TRUE   | <GO:0005788> | endoplasmic reticulum lumen                                       | 0.0313000 |   0 |   1 |    0 |
-| Protein folding / chaperone                     | TRUE   | <GO:0045505> | dynein intermediate chain binding                                 | 0.0420000 |   1 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0051015> | actin filament binding                                            | 0.0001400 |   0 |   1 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0042995> | cell projection                                                   | 0.0007000 |   0 |   1 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0030864> | cortical actin cytoskeleton                                       | 0.0017600 |   0 |   1 |    0 |
-| Other: actin filament binding                   | FALSE  | <GO:0048870> | cell motility                                                     | 0.0032300 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0030036> | actin cytoskeleton organization                                   | 0.0060000 |   0 |   1 |    0 |
-| Other: actin filament binding                   | FALSE  | <GO:0005640> | nuclear outer membrane                                            | 0.0070900 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0031267> | small GTPase binding                                              | 0.0108800 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0030042> | actin filament depolymerization                                   | 0.0129000 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0034993> | meiotic nuclear membrane microtubule tethering complex            | 0.0137100 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0051014> | actin filament severing                                           | 0.0146000 |   0 |   1 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0005635> | nuclear envelope                                                  | 0.0152900 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0008045> | motor neuron axon guidance                                        | 0.0208400 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0005885> | Arp2/3 protein complex                                            | 0.0255200 |   0 |   1 |    0 |
-| Other: actin filament binding                   | FALSE  | <GO:0030479> | actin cortical patch                                              | 0.0255200 |   0 |   1 |    0 |
-| Other: actin filament binding                   | FALSE  | <GO:0032956> | regulation of actin cytoskeleton organization                     | 0.0302100 |   0 |   0 |    1 |
-| Other: actin filament binding                   | FALSE  | <GO:0051016> | barbed-end actin filament capping                                 | 0.0419000 |   0 |   1 |    0 |
-| Acid-base / V-type ATPase                       | TRUE   | <GO:0046961> | proton-transporting ATPase activity, rotational mechanism         | 0.0002000 |   1 |   1 |    1 |
-| Acid-base / V-type ATPase                       | TRUE   | <GO:1902600> | proton transmembrane transport                                    | 0.0057000 |   1 |   1 |    1 |
-| Acid-base / V-type ATPase                       | TRUE   | <GO:0016471> | vacuolar proton-transporting V-type ATPase complex                | 0.0076400 |   0 |   1 |    0 |
-| Acid-base / V-type ATPase                       | TRUE   | <GO:0033179> | proton-transporting V-type ATPase, V0 domain                      | 0.0076400 |   0 |   1 |    1 |
-| Mitochondrial calcium                           | TRUE   | <GO:0036444> | calcium import into the mitochondrion                             | 0.0004200 |   0 |   0 |    1 |
-| Mitochondrial calcium                           | TRUE   | <GO:1990246> | uniplex complex                                                   | 0.0004600 |   0 |   0 |    1 |
-| Mitochondrial calcium                           | TRUE   | <GO:0051560> | mitochondrial calcium ion homeostasis                             | 0.0010200 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0001669> | acrosomal vesicle                                                 | 0.0005100 |   1 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0036064> | ciliary basal body                                                | 0.0006300 |   0 |   1 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0060294> | cilium movement involved in cell motility                         | 0.0007000 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0031514> | motile cilium                                                     | 0.0014300 |   1 |   1 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0003341> | cilium movement                                                   | 0.0047900 |   1 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0005929> | cilium                                                            | 0.0048700 |   1 |   0 |    0 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0015630> | microtubule cytoskeleton                                          | 0.0065800 |   0 |   1 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0044458> | motile cilium assembly                                            | 0.0106000 |   0 |   1 |    0 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0060285> | cilium-dependent cell motility                                    | 0.0127600 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0045504> | dynein heavy chain binding                                        | 0.0210000 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0060271> | cilium assembly                                                   | 0.0221000 |   0 |   1 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0070286> | axonemal dynein complex assembly                                  | 0.0247000 |   0 |   1 |    0 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0005814> | centriole                                                         | 0.0252200 |   1 |   0 |    0 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0035082> | axoneme assembly                                                  | 0.0265000 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0036126> | sperm flagellum                                                   | 0.0320000 |   0 |   0 |    1 |
-| Cilium / ciliary motility                       | TRUE   | <GO:0005930> | axoneme                                                           | 0.0366700 |   0 |   0 |    1 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0006376> | mRNA splice site selection                                        | 0.0006800 |   1 |   1 |    0 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0010494> | cytoplasmic stress granule                                        | 0.0007400 |   1 |   0 |    0 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0008143> | poly(A) binding                                                   | 0.0012100 |   0 |   0 |    1 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0003730> | mRNA 3’-UTR binding                                               | 0.0014000 |   1 |   0 |    0 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0008266> | poly(U) RNA binding                                               | 0.0048000 |   1 |   0 |    1 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0000381> | regulation of alternative mRNA splicing, via spliceosome          | 0.0201900 |   1 |   0 |    0 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0071004> | U2-type prespliceosome                                            | 0.0237500 |   0 |   0 |    1 |
-| Stress granule / mRNA processing                | TRUE   | <GO:0045727> | positive regulation of translation                                | 0.0432200 |   1 |   0 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:0005856> | cytoskeleton                                                      | 0.0014100 |   0 |   1 |    1 |
-| Other: cytoskeleton                             | FALSE  | <GO:0045732> | positive regulation of protein catabolic process                  | 0.0038000 |   0 |   1 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:1904491> | protein localization to ciliary transition zone                   | 0.0044000 |   0 |   1 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:0016459> | myosin complex                                                    | 0.0089100 |   0 |   0 |    1 |
-| Other: cytoskeleton                             | FALSE  | <GO:0003774> | motor activity                                                    | 0.0110800 |   0 |   0 |    1 |
-| Other: cytoskeleton                             | FALSE  | <GO:0051010> | microtubule plus-end binding                                      | 0.0152000 |   0 |   1 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:0090090> | negative regulation of canonical Wnt signaling pathway            | 0.0174500 |   0 |   1 |    1 |
-| Other: cytoskeleton                             | FALSE  | <GO:0005815> | microtubule organizing center                                     | 0.0360100 |   0 |   1 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:0005881> | cytoplasmic microtubule                                           | 0.0374100 |   0 |   1 |    0 |
-| Other: cytoskeleton                             | FALSE  | <GO:0035371> | microtubule plus-end                                              | 0.0375500 |   0 |   1 |    0 |
-| Na/K ionoregulation                             | TRUE   | <GO:0006883> | cellular sodium ion homeostasis                                   | 0.0018600 |   1 |   1 |    1 |
-| Na/K ionoregulation                             | TRUE   | <GO:0030007> | cellular potassium ion homeostasis                                | 0.0018600 |   1 |   1 |    1 |
-| Na/K ionoregulation                             | TRUE   | <GO:0036376> | sodium ion export across plasma membrane                          | 0.0018600 |   1 |   1 |    1 |
-| Na/K ionoregulation                             | TRUE   | <GO:1990573> | potassium ion import across plasma membrane                       | 0.0201900 |   1 |   0 |    1 |
-| Other: cell-cell adhesion mediator activity     | FALSE  | <GO:0098632> | cell-cell adhesion mediator activity                              | 0.0057300 |   0 |   0 |    1 |
-| Other: cell-cell adhesion mediator activity     | FALSE  | <GO:0007411> | axon guidance                                                     | 0.0150100 |   0 |   0 |    1 |
-| Other: cell-cell adhesion mediator activity     | FALSE  | <GO:0070593> | dendrite self-avoidance                                           | 0.0382400 |   0 |   0 |    1 |
-| Other: chromatin binding                        | FALSE  | <GO:0003682> | chromatin binding                                                 | 0.0082300 |   0 |   1 |    1 |
-| Other: chromatin binding                        | FALSE  | <GO:0042393> | histone binding                                                   | 0.0109300 |   0 |   1 |    0 |
-| Other: chromatin binding                        | FALSE  | <GO:0000122> | negative regulation of transcription by RNA polymerase II         | 0.0246000 |   0 |   1 |    0 |
-| Ubiquitin ligase / proteolysis                  | TRUE   | <GO:0031625> | ubiquitin protein ligase binding                                  | 0.0128200 |   0 |   0 |    1 |
-| Ubiquitin ligase / proteolysis                  | TRUE   | <GO:0019941> | modification-dependent protein catabolic process                  | 0.0378400 |   0 |   0 |    1 |
-| Ubiquitin ligase / proteolysis                  | TRUE   | <GO:0030162> | regulation of proteolysis                                         | 0.0413300 |   0 |   0 |    1 |
-| Ubiquitin ligase / proteolysis                  | TRUE   | <GO:0031386> | protein tag                                                       | 0.0489400 |   0 |   0 |    1 |
-| Other: intracellular signal transduction        | FALSE  | <GO:0035556> | intracellular signal transduction                                 | 0.0134000 |   0 |   1 |    0 |
-| Other: intracellular signal transduction        | FALSE  | <GO:0004707> | MAP kinase activity                                               | 0.0284400 |   0 |   1 |    0 |
-| Other: intracellular signal transduction        | FALSE  | <GO:0001653> | peptide receptor activity                                         | 0.0406400 |   0 |   1 |    0 |
-| Other: syntaxin binding                         | FALSE  | <GO:0019905> | syntaxin binding                                                  | 0.0148500 |   0 |   1 |    1 |
-| Other: syntaxin binding                         | FALSE  | <GO:0050708> | regulation of protein secretion                                   | 0.0191000 |   0 |   1 |    0 |
-| Other: syntaxin binding                         | FALSE  | <GO:0016082> | synaptic vesicle priming                                          | 0.0208400 |   0 |   0 |    1 |
-| Other: syntaxin binding                         | FALSE  | <GO:0031629> | synaptic vesicle fusion to presynaptic active zone membrane       | 0.0208400 |   0 |   0 |    1 |
-| Steroid / progesterone metabolism               | TRUE   | <GO:0004508> | steroid 17-alpha-monooxygenase activity                           | 0.0221100 |   0 |   0 |    1 |
-| Steroid / progesterone metabolism               | TRUE   | <GO:0047442> | 17-alpha-hydroxyprogesterone aldolase activity                    | 0.0221100 |   0 |   0 |    1 |
-| Steroid / progesterone metabolism               | TRUE   | <GO:0042448> | progesterone metabolic process                                    | 0.0302700 |   0 |   0 |    1 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0004713> | protein tyrosine kinase activity                                  | 0.0250000 |   0 |   0 |    1 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0008305> | integrin complex                                                  | 0.0254800 |   1 |   0 |    0 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0033627> | cell adhesion mediated by integrin                                | 0.0280100 |   1 |   0 |    0 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0005178> | integrin binding                                                  | 0.0392000 |   1 |   0 |    0 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0007229> | integrin-mediated signaling pathway                               | 0.0399700 |   1 |   0 |    0 |
-| Other: protein tyrosine kinase activity         | FALSE  | <GO:0005925> | focal adhesion                                                    | 0.0416800 |   0 |   0 |    1 |
+| cluster_id | cluster                                         | stress | case_only | GO           | Term                                                              |    Fisher |  CA |  SE | CASE |
+|-----------:|:------------------------------------------------|:-------|:----------|:-------------|:------------------------------------------------------------------|----------:|----:|----:|-----:|
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0030371> | translation repressor activity                                    | 0.0000000 |   1 |   1 |    1 |
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0017148> | negative regulation of translation                                | 0.0000000 |   1 |   1 |    1 |
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0000209> | protein polyubiquitination                                        | 0.0000000 |   1 |   1 |    1 |
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0043161> | proteasome-mediated ubiquitin-dependent protein catabolic process | 0.0000000 |   1 |   1 |    1 |
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0061630> | ubiquitin protein ligase activity                                 | 0.0000000 |   1 |   1 |    1 |
+|         23 | Ubiquitin-proteasome / translational repression | TRUE   | FALSE     | <GO:0008270> | zinc ion binding                                                  | 0.0019000 |   1 |   1 |    0 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0003735> | structural constituent of ribosome                                | 0.0000000 |   1 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0022625> | cytosolic large ribosomal subunit                                 | 0.0000001 |   0 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0022627> | cytosolic small ribosomal subunit                                 | 0.0000049 |   1 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0003723> | RNA binding                                                       | 0.0001000 |   0 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0006412> | translation                                                       | 0.0012900 |   1 |   0 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0070181> | small ribosomal subunit rRNA binding                              | 0.0057000 |   0 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0002181> | cytoplasmic translation                                           | 0.0098800 |   0 |   1 |    1 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0000028> | ribosomal small subunit assembly                                  | 0.0134900 |   1 |   0 |    0 |
+|         16 | Other: structural constituent of ribosome       | FALSE  | FALSE     | <GO:0048027> | mRNA 5’-UTR binding                                               | 0.0151400 |   0 |   0 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0003729> | mRNA binding                                                      | 0.0000000 |   0 |   1 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0003743> | translation initiation factor activity                            | 0.0000180 |   0 |   0 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0002188> | translation reinitiation                                          | 0.0066700 |   0 |   0 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0048024> | regulation of mRNA splicing, via spliceosome                      | 0.0101700 |   0 |   1 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0001732> | formation of cytoplasmic translation initiation complex           | 0.0129100 |   0 |   0 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0001731> | formation of translation preinitiation complex                    | 0.0410500 |   0 |   0 |    1 |
+|          7 | Translation initiation                          | TRUE   | FALSE     | <GO:0016281> | eukaryotic translation initiation factor 4F complex               | 0.0434600 |   0 |   0 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0051082> | unfolded protein binding                                          | 0.0000044 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0005832> | chaperonin-containing T-complex                                   | 0.0001200 |   0 |   1 |    0 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0006457> | protein folding                                                   | 0.0001400 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0005524> | ATP binding                                                       | 0.0004700 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0016887> | ATPase activity                                                   | 0.0005500 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0050821> | protein stabilization                                             | 0.0029000 |   0 |   1 |    0 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0051959> | dynein light intermediate chain binding                           | 0.0034600 |   1 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0008569> | ATP-dependent microtubule motor activity, minus-end-directed      | 0.0068000 |   1 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0030433> | ubiquitin-dependent ERAD pathway                                  | 0.0075000 |   0 |   0 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0030970> | retrograde protein transport, ER to cytosol                       | 0.0106000 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0008017> | microtubule binding                                               | 0.0122700 |   0 |   1 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0030286> | dynein complex                                                    | 0.0191900 |   0 |   0 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0007018> | microtubule-based movement                                        | 0.0283900 |   0 |   0 |    1 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0005788> | endoplasmic reticulum lumen                                       | 0.0313000 |   0 |   1 |    0 |
+|          3 | Protein folding / chaperone                     | TRUE   | FALSE     | <GO:0045505> | dynein intermediate chain binding                                 | 0.0420000 |   1 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0051015> | actin filament binding                                            | 0.0001400 |   0 |   1 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0042995> | cell projection                                                   | 0.0007000 |   0 |   1 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0030864> | cortical actin cytoskeleton                                       | 0.0017600 |   0 |   1 |    0 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0048870> | cell motility                                                     | 0.0032300 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0030036> | actin cytoskeleton organization                                   | 0.0060000 |   0 |   1 |    0 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0005640> | nuclear outer membrane                                            | 0.0070900 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0031267> | small GTPase binding                                              | 0.0108800 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0030042> | actin filament depolymerization                                   | 0.0129000 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0034993> | meiotic nuclear membrane microtubule tethering complex            | 0.0137100 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0051014> | actin filament severing                                           | 0.0146000 |   0 |   1 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0005635> | nuclear envelope                                                  | 0.0152900 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0008045> | motor neuron axon guidance                                        | 0.0208400 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0005885> | Arp2/3 protein complex                                            | 0.0255200 |   0 |   1 |    0 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0030479> | actin cortical patch                                              | 0.0255200 |   0 |   1 |    0 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0032956> | regulation of actin cytoskeleton organization                     | 0.0302100 |   0 |   0 |    1 |
+|          2 | Other: actin filament binding                   | FALSE  | FALSE     | <GO:0051016> | barbed-end actin filament capping                                 | 0.0419000 |   0 |   1 |    0 |
+|         19 | Acid-base / V-type ATPase                       | TRUE   | FALSE     | <GO:0046961> | proton-transporting ATPase activity, rotational mechanism         | 0.0002000 |   1 |   1 |    1 |
+|         19 | Acid-base / V-type ATPase                       | TRUE   | FALSE     | <GO:1902600> | proton transmembrane transport                                    | 0.0057000 |   1 |   1 |    1 |
+|         19 | Acid-base / V-type ATPase                       | TRUE   | FALSE     | <GO:0016471> | vacuolar proton-transporting V-type ATPase complex                | 0.0076400 |   0 |   1 |    0 |
+|         19 | Acid-base / V-type ATPase                       | TRUE   | FALSE     | <GO:0033179> | proton-transporting V-type ATPase, V0 domain                      | 0.0076400 |   0 |   1 |    1 |
+|         26 | Mitochondrial calcium                           | TRUE   | TRUE      | <GO:0036444> | calcium import into the mitochondrion                             | 0.0004200 |   0 |   0 |    1 |
+|         26 | Mitochondrial calcium                           | TRUE   | TRUE      | <GO:1990246> | uniplex complex                                                   | 0.0004600 |   0 |   0 |    1 |
+|         26 | Mitochondrial calcium                           | TRUE   | TRUE      | <GO:0051560> | mitochondrial calcium ion homeostasis                             | 0.0010200 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0001669> | acrosomal vesicle                                                 | 0.0005100 |   1 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0036064> | ciliary basal body                                                | 0.0006300 |   0 |   1 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0060294> | cilium movement involved in cell motility                         | 0.0007000 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0031514> | motile cilium                                                     | 0.0014300 |   1 |   1 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0003341> | cilium movement                                                   | 0.0047900 |   1 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0005929> | cilium                                                            | 0.0048700 |   1 |   0 |    0 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0015630> | microtubule cytoskeleton                                          | 0.0065800 |   0 |   1 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0044458> | motile cilium assembly                                            | 0.0106000 |   0 |   1 |    0 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0060285> | cilium-dependent cell motility                                    | 0.0127600 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0045504> | dynein heavy chain binding                                        | 0.0210000 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0060271> | cilium assembly                                                   | 0.0221000 |   0 |   1 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0070286> | axonemal dynein complex assembly                                  | 0.0247000 |   0 |   1 |    0 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0005814> | centriole                                                         | 0.0252200 |   1 |   0 |    0 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0035082> | axoneme assembly                                                  | 0.0265000 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0036126> | sperm flagellum                                                   | 0.0320000 |   0 |   0 |    1 |
+|          4 | Cilium / ciliary motility                       | TRUE   | FALSE     | <GO:0005930> | axoneme                                                           | 0.0366700 |   0 |   0 |    1 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0006376> | mRNA splice site selection                                        | 0.0006800 |   1 |   1 |    0 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0010494> | cytoplasmic stress granule                                        | 0.0007400 |   1 |   0 |    0 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0008143> | poly(A) binding                                                   | 0.0012100 |   0 |   0 |    1 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0003730> | mRNA 3’-UTR binding                                               | 0.0014000 |   1 |   0 |    0 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0008266> | poly(U) RNA binding                                               | 0.0048000 |   1 |   0 |    1 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0000381> | regulation of alternative mRNA splicing, via spliceosome          | 0.0201900 |   1 |   0 |    0 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0071004> | U2-type prespliceosome                                            | 0.0237500 |   0 |   0 |    1 |
+|         12 | Stress granule / mRNA processing                | TRUE   | FALSE     | <GO:0045727> | positive regulation of translation                                | 0.0432200 |   1 |   0 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0005856> | cytoskeleton                                                      | 0.0014100 |   0 |   1 |    1 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0045732> | positive regulation of protein catabolic process                  | 0.0038000 |   0 |   1 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:1904491> | protein localization to ciliary transition zone                   | 0.0044000 |   0 |   1 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0016459> | myosin complex                                                    | 0.0089100 |   0 |   0 |    1 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0003774> | motor activity                                                    | 0.0110800 |   0 |   0 |    1 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0051010> | microtubule plus-end binding                                      | 0.0152000 |   0 |   1 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0090090> | negative regulation of canonical Wnt signaling pathway            | 0.0174500 |   0 |   1 |    1 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0005815> | microtubule organizing center                                     | 0.0360100 |   0 |   1 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0005881> | cytoplasmic microtubule                                           | 0.0374100 |   0 |   1 |    0 |
+|          1 | Other: cytoskeleton                             | FALSE  | FALSE     | <GO:0035371> | microtubule plus-end                                              | 0.0375500 |   0 |   1 |    0 |
+|         24 | Na/K ionoregulation                             | TRUE   | FALSE     | <GO:0006883> | cellular sodium ion homeostasis                                   | 0.0018600 |   1 |   1 |    1 |
+|         24 | Na/K ionoregulation                             | TRUE   | FALSE     | <GO:0030007> | cellular potassium ion homeostasis                                | 0.0018600 |   1 |   1 |    1 |
+|         24 | Na/K ionoregulation                             | TRUE   | FALSE     | <GO:0036376> | sodium ion export across plasma membrane                          | 0.0018600 |   1 |   1 |    1 |
+|         24 | Na/K ionoregulation                             | TRUE   | FALSE     | <GO:1990573> | potassium ion import across plasma membrane                       | 0.0201900 |   1 |   0 |    1 |
+|         22 | Other: cell-cell adhesion mediator activity     | FALSE  | TRUE      | <GO:0098632> | cell-cell adhesion mediator activity                              | 0.0057300 |   0 |   0 |    1 |
+|         22 | Other: cell-cell adhesion mediator activity     | FALSE  | TRUE      | <GO:0007411> | axon guidance                                                     | 0.0150100 |   0 |   0 |    1 |
+|         22 | Other: cell-cell adhesion mediator activity     | FALSE  | TRUE      | <GO:0070593> | dendrite self-avoidance                                           | 0.0382400 |   0 |   0 |    1 |
+|         15 | Other: chromatin binding                        | FALSE  | FALSE     | <GO:0003682> | chromatin binding                                                 | 0.0082300 |   0 |   1 |    1 |
+|         15 | Other: chromatin binding                        | FALSE  | FALSE     | <GO:0042393> | histone binding                                                   | 0.0109300 |   0 |   1 |    0 |
+|         15 | Other: chromatin binding                        | FALSE  | FALSE     | <GO:0000122> | negative regulation of transcription by RNA polymerase II         | 0.0246000 |   0 |   1 |    0 |
+|         21 | Ubiquitin ligase / proteolysis                  | TRUE   | TRUE      | <GO:0031625> | ubiquitin protein ligase binding                                  | 0.0128200 |   0 |   0 |    1 |
+|         21 | Ubiquitin ligase / proteolysis                  | TRUE   | TRUE      | <GO:0019941> | modification-dependent protein catabolic process                  | 0.0378400 |   0 |   0 |    1 |
+|         21 | Ubiquitin ligase / proteolysis                  | TRUE   | TRUE      | <GO:0030162> | regulation of proteolysis                                         | 0.0413300 |   0 |   0 |    1 |
+|         21 | Ubiquitin ligase / proteolysis                  | TRUE   | TRUE      | <GO:0031386> | protein tag                                                       | 0.0489400 |   0 |   0 |    1 |
+|          9 | Other: intracellular signal transduction        | FALSE  | FALSE     | <GO:0035556> | intracellular signal transduction                                 | 0.0134000 |   0 |   1 |    0 |
+|          9 | Other: intracellular signal transduction        | FALSE  | FALSE     | <GO:0004707> | MAP kinase activity                                               | 0.0284400 |   0 |   1 |    0 |
+|          9 | Other: intracellular signal transduction        | FALSE  | FALSE     | <GO:0001653> | peptide receptor activity                                         | 0.0406400 |   0 |   1 |    0 |
+|          8 | Other: syntaxin binding                         | FALSE  | FALSE     | <GO:0019905> | syntaxin binding                                                  | 0.0148500 |   0 |   1 |    1 |
+|          8 | Other: syntaxin binding                         | FALSE  | FALSE     | <GO:0050708> | regulation of protein secretion                                   | 0.0191000 |   0 |   1 |    0 |
+|          8 | Other: syntaxin binding                         | FALSE  | FALSE     | <GO:0016082> | synaptic vesicle priming                                          | 0.0208400 |   0 |   0 |    1 |
+|          8 | Other: syntaxin binding                         | FALSE  | FALSE     | <GO:0031629> | synaptic vesicle fusion to presynaptic active zone membrane       | 0.0208400 |   0 |   0 |    1 |
+|         25 | Steroid / progesterone metabolism               | TRUE   | TRUE      | <GO:0004508> | steroid 17-alpha-monooxygenase activity                           | 0.0221100 |   0 |   0 |    1 |
+|         25 | Steroid / progesterone metabolism               | TRUE   | TRUE      | <GO:0047442> | 17-alpha-hydroxyprogesterone aldolase activity                    | 0.0221100 |   0 |   0 |    1 |
+|         25 | Steroid / progesterone metabolism               | TRUE   | TRUE      | <GO:0042448> | progesterone metabolic process                                    | 0.0302700 |   0 |   0 |    1 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0004713> | protein tyrosine kinase activity                                  | 0.0250000 |   0 |   0 |    1 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0008305> | integrin complex                                                  | 0.0254800 |   1 |   0 |    0 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0033627> | cell adhesion mediated by integrin                                | 0.0280100 |   1 |   0 |    0 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0005178> | integrin binding                                                  | 0.0392000 |   1 |   0 |    0 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0007229> | integrin-mediated signaling pathway                               | 0.0399700 |   1 |   0 |    0 |
+|         11 | Other: protein tyrosine kinase activity         | FALSE  | FALSE     | <GO:0005925> | focal adhesion                                                    | 0.0416800 |   0 |   0 |    1 |
 
 Table 1. Data-driven GO clusters (all terms; stress flag and
 per-stressor enrichment). Stress-relevant clusters are shown in Fig 4D.
