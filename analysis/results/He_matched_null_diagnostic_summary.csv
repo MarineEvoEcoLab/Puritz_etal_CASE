@@ -1,0 +1,10 @@
+tier,treatment,n_out,n_matched,pct_retained,mean_frac_over_neutral,mean_adp_gap
+Core,CA,1069,1069,100,0,0.0517
+Core,SE,2725,2725,100,0,0.057
+Core,CASE,4963,4963,100,0,0.054
+Convergent,CA,92,92,100,0,0.0498
+Convergent,SE,258,258,100,0,0.0475
+Convergent,CASE,1281,1281,100,0,0.045
+Private,CA,198,198,100,0,0.0664
+Private,SE,215,215,100,0,0.0479
+Private,CASE,455,455,100,0,0.0438

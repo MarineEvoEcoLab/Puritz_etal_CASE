@@ -1,0 +1,4 @@
+test,frac_positive,p_binom
+CA moves with CASE (dCA_o>0),0.835016835016835,3.53923718050962e-33
+SE moves with CASE (dSE_o>0),0.976430976430976,3.03101569001125e-76
+CASE exceeds additive (syn>0),0.838383838383838,6.92392900293523e-34
