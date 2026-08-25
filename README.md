@@ -17,7 +17,7 @@ Wild-broodstock larvae were exposed for 24 hours to one of four treatments in a 
 | **SE**    | control | 5% v/v treated effluent |
 | **CASE**  | ~2,800 µatm pCO₂ | 5% v/v treated effluent |
 
-Pooled expressed exome capture sequencing (EecSeq) estimated allele frequencies before and after exposure across three independent spawning blocks (Blocks 10, 11, 12; Block 6 was phenotyped but not sequenced). Loci under selection were identified with Cochran–Mantel–Haenszel (CMH) tests across replicate blocks, with control-treatment outliers removed to minimize experimental artifacts and maternal effects.
+Pooled expressed exome capture sequencing (EecSeq) estimated allele frequencies before and after exposure across three independent spawning blocks (spawns SP2, SP3, SP4; internal block IDs B10, B11, B12; Block 6 was phenotyped but not sequenced). Loci under selection were identified with Cochran–Mantel–Haenszel (CMH) tests across replicate blocks, with control-treatment outliers removed to minimize experimental artifacts and maternal effects.
 
 ### Key findings
 

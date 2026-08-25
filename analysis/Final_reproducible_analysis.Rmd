@@ -14,7 +14,7 @@ output:
 > → Fig 4 treatment-exclusive loci → Fig 5 diversity,
 > architecture & convergent function); a shared genomic-substrate section
 > precedes the figures because Figs 2–5 all depend on the same allele-frequency,
-> CMH and locus-tier objects. Supplementary figures (S1–S15) and tables follow
+> CMH and locus-tier objects. Supplementary figures (SP1–S15) and tables follow
 > each result. Heavy preprocessing steps that require external tools or large
 > intermediate files are kept as `eval=FALSE` documented commands.
 >
@@ -77,9 +77,49 @@ cbPaletteSmall   <- c("#E69F00","#009E73","#999999","sky blue","#0072B2")
 cbPaletteSmall3  <- c("#E69F00","#0072B2","#009E73")        # CA, SE, CASE (Venn fills)
 cbPaletteSmall4  <- c("#999999","#E69F00","#0072B2","#009E73")
 cbPaletteSmall5  <- c("#999999","#E69F00","#0072B2","#009E73")
+# ---- Spawn identifiers: DATA KEYS vs MANUSCRIPT LABELS ---------------------
+# The internal lab block IDs (B6, B10, B11, B12) are DATA KEYS. They are baked into
+# raw data files, sample IDs (e.g. CS.B10.T0.J01), sync column names, .pos/.input
+# filenames, and the BLOCK column of every results table. They are deliberately left
+# UNCHANGED everywhere below so this analysis stays reproducible against the archived
+# data and the deposited sequence records.
+#
+# The manuscript uses sequential spawn labels instead. The original numbering had an
+# unexplained gap (6, then 10-12) because only 4 of 12 attempted spawns met the
+# broodstock-provenance criterion; sequential labels avoid inviting that question.
+#
+#   DATA KEY   LABEL   SPAWN DATE     DATA COLLECTED
+#   B6         SP1      30 Aug 2016    phenotype only (not sequenced)
+#   B10        SP2      13 Jul 2017    phenotype + exome capture
+#   B11        SP3      24 Jul 2017    phenotype + exome capture
+#   B12        SP4      27 Jul 2017    phenotype + exome capture
+#
+# Note SP2-SP4 are ALSO phenotyped; the only asymmetry is sequencing. This mapping is
+# reproduced as Table S6 in the Supporting Information (generated from this object in the
+# supp-tables chunk, so it cannot drift). Conversion happens at the point of display only:
+# facet labellers, scale labels, plot titles, and output filenames.
+spawn_key2lab <- c(B6 = "SP1", B10 = "SP2", B11 = "SP3", B12 = "SP4")
+
+# Accepts any form the data uses: 10, "10", "b10", "B10", "B06" -> returns "SP2", "SP1", ...
+spawn_lab <- function(x) {
+  k <- toupper(as.character(x))
+  k <- ifelse(grepl("^[0-9]+$", k), paste0("B", as.integer(k)), k)   # 10 / "10" -> "B10"
+  k <- sub("^B0+", "B", k)                                           # "B06" -> "B6"
+  unname(spawn_key2lab[k])
+}
+# Plain vectorised function for facet strips: facet_*(labeller = labeller(Block = spawn_labeller))
+spawn_labeller <- function(x) spawn_lab(x)
+# All four spawns in manuscript order (phenotype figures); sequenced subset is SP2-SP4.
+spawn_lab_all  <- c("SP1","SP2","SP3","SP4")
+
+# spawn_levels stays on DATA KEYS: it indexes spawn_cols/spawn_shapes, pv_list, and the
+# per-block column suffixes in the sync files. spawn_labels is its display counterpart,
+# passed to `labels =` in the scales so legends read SP2/SP3/SP4.
 spawn_levels <- c("B10","B11","B12")
+# NAMED so ggplot matches labels to breaks by name, not by position: c(B10="SP2", ...).
+spawn_labels <- setNames(spawn_lab(spawn_levels), spawn_levels)
 # Spawn palette now reuses the Tier palette (Core/Convergent/Private colours),
-# repurposed 1:1 for B10/B11/B12.
+# repurposed 1:1 for B10/B11/B12 (= SP2/SP3/SP4).
 spawn_cols   <- c(B10="#CC79A7", B11="#D55E00", B12="#F0E442")
 spawn_shapes <- c(B10=21, B11=22, B12=23)
 stat_cols    <- c(Observed="#D7191C", `CON baseline`="#999999", `Random null`="#4D4D4D")
@@ -166,7 +206,7 @@ setnames(mort_all, "%_Initial_Composite",  "surv_Composite")
 setnames(mort_all, "%_Initial_Average",    "surv_Average")
 setnames(mort_all, "%_Initial_Seeded",     "surv_Seeded")
 mort_all[, Treatment := factor(Treatment, levels = c("CON","CA","SE","CASE"))]
-final_data_end <- mort_all[Time > 12]                          # end timepoint (Time 24; all four spawns incl. B6)
+final_data_end <- mort_all[Time > 12]                          # end timepoint (Time 24; all four spawns incl. B6 = SP1)
 
 # All stats use the composite denominator: composite T0 = mean of seeded density, the jar's own
 # calculated T0, and the block-mean calculated T0 (best accuracy/error trade-off vs. sampling error
@@ -209,8 +249,9 @@ The PowerPoint experiment schematic is placed above this panel in the final figu
 ```{r fig1-survival, fig.width=14, fig.height=3.6}
 # Composite-denominator survival at the end timepoint (the value used for all statistics). The
 # sensitivity to the T0 denominator choice is shown separately in Fig S2.
+# Block stays the numeric data key (6/10/11/12); Spawn is the display label (SP1-SP4).
 mort_end2 <- final_data_end[, .(Block, Treatment,
-  Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))),
+  Spawn = factor(spawn_lab(Block), levels = spawn_lab_all),
   Survival = surv_Composite)]
 fig1b <- ggplot(mort_end2, aes(Treatment, Survival, fill = Treatment)) +
   geom_boxplot(notch = FALSE, outlier.colour = NA, alpha = 0.75, colour = "black", width = 0.25) +
@@ -245,9 +286,12 @@ dev_size <- filter(dev_size, Time != "T04")
 dev_size <- filter(dev_size, N.D.A != "NA")
 dev_size$Treatment <- factor(dev_size$Treatment, levels = c("CON","CA","SE","CASE"))
 dev_size$N.D.A     <- factor(dev_size$N.D.A, levels = c("Dead","Deformed","Normal"))
+# Block column in CASE_LNDA.txt holds the data keys "B06"/"B10"/"B11"/"B12";
+# spawn_labeller renders them as SP1-SP4 in the strips without touching the data.
 NDA.plot <- ggplot(dev_size, aes(x = Treatment, fill = N.D.A)) +
   geom_bar(position = "fill", na.rm = TRUE) +
-  facet_grid(rows = vars(Block), cols = vars(Time), scales = "free") +
+  facet_grid(rows = vars(Block), cols = vars(Time), scales = "free",
+             labeller = labeller(Block = spawn_labeller)) +
   labs(y = "Proportion", title = "Larval development (normal / deformed / dead)") +
   theme_classic()
 ```
@@ -260,21 +304,25 @@ final_size <- filter(final_size, Normal.Deformed == "Normal")
 final_size <- filter(final_size, Alive.Dead == "Alive")
 final_size$Treatment <- factor(final_size$Treatment, levels = c("CON","CA","SE","CASE"))
 
+# As above: Block holds data keys ("B06"...), displayed as SP1-SP4 via spawn_labeller.
 ShellHeight <- ggplot(final_size, aes(x = Time, y = Height, fill = Treatment)) +
   geom_boxplot(alpha = 0.5) +
-  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free") +
+  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free",
+             labeller = labeller(Block = spawn_labeller)) +
   scale_fill_manual(values = cbPaletteSmall5) +
   labs(title = "Shell height") + theme_classic()
 
 HingeLength <- ggplot(final_size, aes(x = Time, y = Length, fill = Treatment)) +
   geom_boxplot(alpha = 0.5) +
-  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free") +
+  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free",
+             labeller = labeller(Block = spawn_labeller)) +
   scale_fill_manual(values = cbPaletteSmall5) +
   labs(title = "Hinge length") + theme_classic()
 
 Circumference <- ggplot(final_size, aes(x = Time, y = Circumference, fill = Treatment)) +
   geom_boxplot(alpha = 0.5) +
-  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free") +
+  facet_grid(rows = vars(Larval.Stage), cols = vars(Block), scales = "free",
+             labeller = labeller(Block = spawn_labeller)) +
   scale_fill_manual(values = cbPaletteSmall5) +
   labs(title = "Circumference") + theme_classic()
 ```
@@ -299,8 +347,8 @@ denominators, faceted by spawn (rows) and denominator (columns), so the treatmen
 seen to hold regardless of the reference.
 
 ```{r figS2-mortality-denominators, fig.width=12, fig.height=11}
-mort_dn <- melt(final_data_end[, .(Block,
-    Spawn = factor(paste0("B", Block), levels = paste0("B", sort(unique(Block)))), Treatment,
+mort_dn <- melt(final_data_end[, .(Block,   # Block = data key, Spawn = display label
+    Spawn = factor(spawn_lab(Block), levels = spawn_lab_all), Treatment,
     Composite = surv_Composite, Calculated = surv_Calculated, Average = surv_Average, Seeded = surv_Seeded)],
   id.vars = c("Block","Spawn","Treatment"), variable.name = "Denominator", value.name = "Survival")
 mort_dn[, Denominator := factor(Denominator, levels = c("Composite","Calculated","Average","Seeded"))]
@@ -342,6 +390,14 @@ bcftools query -l CASE.TRSdp.20.g5.nDNA.FIL.vcf.gz > samples
 ### Create Unified Sync file
 Each sequencing run had some extra samples that need to be removed before starting the analysis
 Each block was filtered for missing data less than 10% and MAF of > 0.015 based on read counts using VCF file first.
+
+> **Naming note.** Everything from here through the CMH section is keyed on the internal
+> lab block IDs — `B10`, `B11`, `B12` — because they are baked into the sample names in the
+> VCF, the sync column headers, and the intermediate `.pos` / `.input` / `.sync` filenames.
+> These are **data keys and are intentionally not renamed.** The manuscript reports these
+> same three spawns as **SP2, SP3, and SP4** (and the unsequenced phenotype-only spawn `B6` as
+> **SP1**); see the `spawn_key2lab` mapping in the setup chunk and Table S6. Conversion to
+> the S-labels happens only where a value is drawn or printed.
 
 
 
@@ -491,7 +547,7 @@ venn.plot <- draw.triple.venn(
   n12= loci.b10.b11, n13=loci.b10.b12, 
   n23=loci.b11.b12,scaled=TRUE,
   n123=loci.b10.b11.b12, cex=rep(2, 7),
-  category = c("Block 10", "Block 11", "Block 12"),
+  category = spawn_lab(c("B10","B11","B12")),   # display labels SP2/SP3/SP4; counts above are keyed on B10-B12
   fill = cbPaletteSmall3,cat.cex = rep(2, 3),
   cat.col = cbPaletteSmall3, label.col = rep("white", 7))
 dev.off()
@@ -2138,7 +2194,7 @@ alpha2   <- 0.10
 P        <- 10000
 set.seed(1)
 qcol   <- c(CA = "QCA", SE = "QSE", CASE = "QCASE", CON = "QCON")
-blocks <- c("B10","B11","B12")
+blocks <- c("B10","B11","B12")        # DATA KEYS (= SP2/SP3/SP4 in the manuscript); see spawn_key2lab
 asL    <- function(x) as.logical(x)   # tolerate logical OR "TRUE"/"FALSE" character cols
 ```
 
@@ -2214,16 +2270,18 @@ M <- input.all.outlier.af
                           rep("CA",4),rep("CASE",4),rep("CON",4),rep("SE",4),
                           rep("CA",4),rep("CASE",4),rep("CON",4),rep("SE",4)),
                         levels = treat_levels)
+  # Spawn factor stays on data keys (B10-B12) so it indexes spawn_shapes/spawn_cols;
+  # `labels = spawn_labels` renders the legend as SP2/SP3/SP4.
   d$Spawn <- factor(c(rep("B10",12), rep("B11",16), rep("B12",16)), levels = spawn_levels)
   pca_dAF <- ggplot(d, aes(PC1, PC2, fill = Treatment, shape = Spawn)) +
     geom_point(size = 6, colour = "black", alpha = 0.6) +
     scale_fill_manual(values = treat_cols, name = "Treatment",
                       limits = c("CON","CA","SE","CASE","IS"), drop = FALSE) +
-    scale_shape_manual(values = spawn_shapes, name = "Spawn") +
+    scale_shape_manual(values = spawn_shapes, labels = spawn_labels, name = "Spawn") +
     guides(fill = "none",  # Panel A: Spawn legend only; colour keys to spawn so it merges with Panel G's
            shape = guide_legend(override.aes = list(fill = unname(spawn_cols)))) +
     labs(x = sprintf("PC1 (%.1f%%)", ve[1]), y = sprintf("PC2 (%.1f%%)", ve[2]),
-         title = "Outlier loci: ΔAF from initial, all blocks") +
+         title = "Outlier loci: ΔAF from initial, all spawns") +
     theme_case(13)
 pca_dAF
 ```
@@ -2256,9 +2314,10 @@ for (b in blocks) {
   pos  <- read.table(pos_files[[b]], header = FALSE, stringsAsFactors = FALSE)
   rows <- rownames(src) %in% paste(pos[, 1], pos[, 2], sep = ".")
   cat(sprintf("  %s: %d of %d outlier loci retained by .pos filter\n", b, sum(rows), nrow(src)))
-  p <- run_pca(src[rows, idx, drop = FALSE], paste0("Outlier loci: ", b), shape = spawn_shapes[[b]])
+  # `b` is the data key (B10-B12); spawn_lab(b) is what the reader sees in the title.
+  p <- run_pca(src[rows, idx, drop = FALSE], paste0("Outlier loci: ", spawn_lab(b)), shape = spawn_shapes[[b]])
   # guides(fill = "none") (layer-level) survives the figure-wide `& theme(...)` in fig2-assemble.
-  if (b != "B10") p <- p + guides(fill = "none")   # only B10 keeps the Treatment legend
+  if (b != "B10") p <- p + guides(fill = "none")   # only B10 (= SP2) keeps the Treatment legend
   block_pcas[[b]] <- p
 }
 ```
@@ -2373,7 +2432,7 @@ fig2b <- ggplot(plt, aes(treatment, n, colour = src, group = src)) +
   scale_colour_manual(values = stat_cols, name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.30))) +    # headroom for the common annotation line
   labs(x = NULL, y = "Shared by >=2 of 3 spawns",
-       title = "Cross-block reproducibility vs matched baselines") +
+       title = "Cross-spawn reproducibility vs matched baselines") +
   theme_case(13) + theme(strip.background = element_blank(),
                          strip.text = element_text(face = "bold"),
                          legend.position = "right",                 # vertical (inside-panel is unreliable for facets)
@@ -2397,7 +2456,7 @@ fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   scale_fill_manual(values = treat_cols, guide = "none") +
   scale_x_continuous(expand = expansion(mult = c(0.12, 0.12))) +
   scale_y_continuous(expand = expansion(mult = c(0.08, 0.15))) +
-  labs(x = "Excess larval mortality vs CON\n(mean of B10–B12, % pts)",
+  labs(x = "Excess larval mortality vs CON\n(mean of SP2–SP4, % pts)",
        y = "Reproducibility (fold vs CON)",
        title = "Complexity Increases Response, Lowers Reproducibility") +
   theme_case(13) + theme(legend.position = "none", plot.title.position = "plot")
@@ -2436,7 +2495,7 @@ fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   ex[, glab  := factor(disp_gene(gene), levels = rev(unique(disp_top)))]
   ex[, block := factor(block, levels = spawn_levels)]
   ex[, gnum  := as.integer(glab)]
-  # three horizontal spawn tracks per gene (B10 top, B11 mid, B12 bottom) to declutter
+  # three horizontal spawn tracks per gene (B10/SP2 top, B11/SP3 mid, B12/SP4 bottom) to declutter
   off <- c(B10 = 0.26, B11 = 0, B12 = -0.26)
   ex[, y2 := gnum + off[as.character(block)]]
   tracks <- unique(ex[, .(gnum, block, y2)])
@@ -2447,7 +2506,7 @@ fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
                size = 2.4, colour = "black", alpha = 0.75) +
     scale_fill_manual(values = spawn_cols, guide = "none") +
     scale_colour_manual(values = spawn_cols, guide = "none") +   # track-line colour, no legend
-    scale_shape_manual(values = spawn_shapes, name = "Spawn") +
+    scale_shape_manual(values = spawn_shapes, labels = spawn_labels, name = "Spawn") +
     # Panel A already carries the (identical) Spawn legend in the collected guides;
     # suppress G's copy via guides() so it doesn't duplicate in the guide_area.
     guides(shape = "none") +
@@ -2455,7 +2514,7 @@ fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
                        labels = levels(ex$glab)[sort(unique(ex$gnum))]) +
     coord_cartesian(xlim = c(0, 6)) +
     labs(x = "Position within gene region (kb)", y = NULL,
-         title = "Same genes, different loci across blocks", plot.title.position = "plot") +
+         title = "Same genes, different loci across spawns", plot.title.position = "plot") +
     theme_case(13)
 turnover
 ```
@@ -2501,7 +2560,7 @@ p_s2_treat <- ggplot(dr, aes(PC1, PC2, fill = Treatment)) +
   s2_lab + labs(title = "By treatment") + theme_case(13)
 p_s2_spawn <- ggplot(dr, aes(PC1, PC2, fill = Spawn)) +
   geom_point(size = 4, shape = 21, colour = "black", alpha = 0.8) +
-  scale_fill_manual(values = spawn_cols) +
+  scale_fill_manual(values = spawn_cols, labels = spawn_labels) +
   s2_lab + labs(title = "By spawn") + theme_case(13)
 # Venn of SNPs called per spawn (built above into VenSNPs.png); embed as a raster panel so the
 # VennDiagram grob drops cleanly into the patchwork, the same approach used for the Fig 1 schematic.
@@ -2758,7 +2817,8 @@ fig3 <- ggplot(mapping = aes(x, y)) +
   scale_fill_gradient(name = sprintf("non-outlier loci", length(bg_snps)),
                       low = "grey92", high = "grey55", trans = "log10") +
   geom_point(data = add_perblk_panel, aes(colour = block), size = 0.75, alpha = 0.5) +
-  scale_colour_manual(name = "block", values = spawn_cols) +
+  # `block` holds data keys B10-B12; labels render them as SP2-SP4.
+  scale_colour_manual(name = "Spawn", values = spawn_cols, labels = spawn_labels) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
   geom_abline(data = add_fitdt, aes(slope = slope, intercept = intercept), colour = "black", linewidth = 0.6) +
   geom_text(data = ann, aes(label = lab), x = rng[1], y = rng[2], hjust = 0, vjust = 1,
@@ -2770,7 +2830,7 @@ fig3 <- ggplot(mapping = aes(x, y)) +
   labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
        y = "ΔAF CASE − ΔAF CON   [combined response]",
        title = "Fig 3. Additivity of allele-frequency change",
-       subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = block") +
+       subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = spawn") +
   theme_case(12)
 fig3
 save_case(fig3, "Fig3_magnitude_additivity.png", width = 11, height = 7)
@@ -2836,7 +2896,9 @@ add_pl_t[, tier := factor(tier, levels = c("Core","Convergent","Private"))]
 
 add_pl_t <- add_pl_t[sCASE & !sCA & !sSE]
 
-add_pl_t$BLOCK <- factor(add_pl_t$BLOCK,levels = c(10, 11, 12),labels = c("B10", "B11", "B12"))
+# Normalise BLOCK from the numeric data key (10/11/12) to the string data key (B10/B11/B12)
+# so it indexes spawn_cols. Display as SP2/SP3/SP4 via `labels = spawn_labels` on the scale below.
+add_pl_t$BLOCK <- factor(add_pl_t$BLOCK, levels = c(10, 11, 12), labels = spawn_levels)
 
 
 fit_t <- add_pl_t[, {
@@ -2869,7 +2931,7 @@ ann_t  <- fit_t[, .(tier, lab = sprintf("OLS %.2f | orth %.2f\n%.0f%% above | r=
 figS5 <- ggplot(add_pl_t, aes(x, y)) +
   geom_bin2d(data = bg, bins = 200) +
   geom_point(data = add_pl_t, aes(colour = BLOCK), size = 1.5, alpha = 0.5) +
-  scale_colour_manual(name = "block", values = spawn_cols) +
+  scale_colour_manual(name = "Spawn", values = spawn_cols, labels = spawn_labels) +
   scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
                       low = "grey92", high = "grey55", trans = "log10") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
@@ -2898,7 +2960,7 @@ ggplot(mapping = aes(x, y)) +
   scale_fill_gradient(name = sprintf("non-outlier loci\n(n=%d subsample)", length(bg_snps)),
                        low = "grey92", high = "grey55", trans = "log10") +
   geom_point(data = per_blk_tier, aes(colour = block), size = 0.6, alpha = 0.6) +
-  scale_colour_manual(name = "block", values = spawn_cols) +
+  scale_colour_manual(name = "Spawn", values = spawn_cols, labels = spawn_labels) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
   geom_abline(data = fitdt_tier, aes(slope = slope, intercept = intercept), colour = "black",
               linewidth = 0.6) +
@@ -2909,7 +2971,7 @@ ggplot(mapping = aes(x, y)) +
   labs(x = "(dCA − dCON) + (dSE − dCON)   [additive expectation]",
        y = "dCASE − dCON   [combined response]",
        title = "CASE-only additivity, faceted by locus replication tier",
-       subtitle = "dashed = additive 1:1;  solid black = per-tier orthogonal fit;  grey = same 10,000-locus background;  colour = block") +
+       subtitle = "dashed = additive 1:1;  solid black = per-tier orthogonal fit;  grey = same 10,000-locus background;  colour = spawn") +
   theme_bw()
 ```
 
@@ -2955,7 +3017,8 @@ manhattan_block <- function(pv_df, block_num, treatment_col, qcolumn, base_color
   ysc <- if (is.null(ylim))
     scale_y_continuous(expand = c(0,0), limits = c(0, max(dfm$marker + 1, na.rm = TRUE)))
   else scale_y_continuous(expand = c(0,0), limits = ylim)
-  if (is.null(title)) title <- paste0("Block ", block_num)
+  # block_num is the numeric data key (10/11/12); spawn_lab() gives the printed label.
+  if (is.null(title)) title <- spawn_lab(block_num)
   ggplot(dfm, aes(index, marker, colour = as.factor(chrom_alt))) +
     geom_point(aes(alpha = marker, shape = Group, size = marker)) +
     geom_point(data = subset(dfmo, Tier == "Core"),           aes(index, marker, fill = Tier), shape = 21, size = 3, colour = "black", alpha = 0.9) +
@@ -2982,31 +3045,34 @@ manhattan_block <- function(pv_df, block_num, treatment_col, qcolumn, base_color
 ```{r fig4-manhattan, fig.width=11, fig.height=10}
 # y capped at 20 for all three; the two CHR5 points above 20 are control-filtered and
 # noted in the legend rather than shown.
-m12_ca   <- manhattan_block(pv_list$B12, 12, "Sig.CA",   "QCA",   "#E69F00", title = "B12, CA",   ylim = c(0, 20))
-m12_se   <- manhattan_block(pv_list$B12, 12, "Sig.SE",   "QSE",   "#0072B2", title = "B12, SE",   ylim = c(0, 20))
-m12_case <- manhattan_block(pv_list$B12, 12, "Sig.CASE", "QCASE", "#009E73", title = "B12, CASE", ylim = c(0, 20))
+# pv_list is keyed on B10-B12 (data keys); titles use spawn_lab() so panels read "SP4, CA" etc.
+m12_ca   <- manhattan_block(pv_list$B12, 12, "Sig.CA",   "QCA",   "#E69F00", title = paste0(spawn_lab(12), ", CA"),   ylim = c(0, 20))
+m12_se   <- manhattan_block(pv_list$B12, 12, "Sig.SE",   "QSE",   "#0072B2", title = paste0(spawn_lab(12), ", SE"),   ylim = c(0, 20))
+m12_case <- manhattan_block(pv_list$B12, 12, "Sig.CASE", "QCASE", "#009E73", title = paste0(spawn_lab(12), ", CASE"), ylim = c(0, 20))
 fig4_man <- (m12_ca / m12_se / m12_case) & theme(plot.margin = margin(0, 0, 0, 0))
 fig4_man
 ```
 
-## 4.1b Per-spawn Manhattan stacks (B10, B11): supplement
+## 4.1b Per-spawn Manhattan stacks (SP2, SP3): supplement
 
-Same stacked layout as Fig 4A (B12), for the other two sequenced spawns. y capped
+Same stacked layout as Fig 4A (SP4), for the other two sequenced spawns. y capped
 at 20 for cross-spawn comparability with the main figure.
 
 ```{r figS7-S8-manhattan, fig.width=11, fig.height=10}
 mk_manhattan_stack <- function(block_pv, bn, ymax) {
-  ca   <- manhattan_block(block_pv, bn, "Sig.CA",   "QCA",   "#E69F00", title = paste0("B", bn, ", CA"),   ylim = c(0, ymax))
-  se   <- manhattan_block(block_pv, bn, "Sig.SE",   "QSE",   "#0072B2", title = paste0("B", bn, ", SE"),   ylim = c(0, ymax))
-  case <- manhattan_block(block_pv, bn, "Sig.CASE", "QCASE", "#009E73", title = paste0("B", bn, ", CASE"), ylim = c(0, ymax))
+  # bn is the numeric data key (10/11); spawn_lab(bn) is the printed spawn label.
+  sl <- spawn_lab(bn)
+  ca   <- manhattan_block(block_pv, bn, "Sig.CA",   "QCA",   "#E69F00", title = paste0(sl, ", CA"),   ylim = c(0, ymax))
+  se   <- manhattan_block(block_pv, bn, "Sig.SE",   "QSE",   "#0072B2", title = paste0(sl, ", SE"),   ylim = c(0, ymax))
+  case <- manhattan_block(block_pv, bn, "Sig.CASE", "QCASE", "#009E73", title = paste0(sl, ", CASE"), ylim = c(0, ymax))
   (ca / se / case) & theme(plot.margin = margin(10, 0, 0, 0))
 }
 figS7 <- mk_manhattan_stack(pv_list$B10, 10,40)
-save_supp(figS7, "FigS7_B10_manhattan_3stressor.png", width = 11, height = 10)
+save_supp(figS7, "FigS7_SP2_manhattan_3stressor.png", width = 11, height = 10)
 figS7
 
 figS8 <- mk_manhattan_stack(pv_list$B11, 11,12)
-save_supp(figS8, "FigS8_B11_manhattan_3stressor.png", width = 11, height = 10)
+save_supp(figS8, "FigS8_SP3_manhattan_3stressor.png", width = 11, height = 10)
 figS8
 ```
 
@@ -3206,7 +3272,8 @@ spawn_venn_grob <- function(b) {
       category = c("CA","SE","CASE"), fill = cbPaletteSmall3, col = cbPaletteSmall3,
       cat.col = cbPaletteSmall3, cex = 1.4, cat.cex = 1.5, margin = 0.08, ind = FALSE)
     grid::grid.draw(vp)
-    grid::grid.text(b, y = 0.98, gp = grid::gpar(fontface = "bold", cex = 1.4))
+    # `b` is the pv_list data key (B10-B12); print the spawn label instead.
+    grid::grid.text(spawn_lab(b), y = 0.98, gp = grid::gpar(fontface = "bold", cex = 1.4))
   })
 }
 figS6 <- patchwork::wrap_elements(spawn_venn_grob("B10")) +
@@ -3515,7 +3582,7 @@ fig5_he_panel <- ggplot(he_tier_dt, aes(treatment, excess, fill = treatment)) +
   geom_jitter(aes(shape = block), width = 0.12, height = 0, size = 2.2, alpha = 0.85) +
   facet_wrap(~ tier, axes = "all") +
   scale_fill_manual(values = unlist(treat_cols[c("CA","SE","CASE")]), name = "Treatment") +
-  scale_shape_manual(values = spawn_shapes, name = "Block") +
+  scale_shape_manual(values = spawn_shapes, labels = spawn_labels, name = "Spawn") +
   labs(x = NULL, y = expression("Excess" ~ italic(H[E]) ~ "compared to CON")) +
   theme_case(12) +
   theme(strip.background = element_blank(), strip.text = element_text(face = "bold"), legend.direction = "horizontal", legend.position = "bottom",panel.spacing = unit(1, "lines"), axis.title.y = element_text(size=10, margin = margin(t = 0, r = 0, b = 0, l = 0)), plot.margin = margin(t = -0, r = 0, b = 0, l = -0, unit = "pt"))
@@ -3729,13 +3796,14 @@ figS15
 
 ```{r figS16-density2d-byspawn, fig.width=14, fig.height=14.5}
 # Same composite cell (2D scatter + MAF0/|dAF| marginals) as fig5, but faceted into a
-# 3x3 grid: rows = spawn (B10/B11/B12), cols = treatment (CA/SE/CASE). Density marginals
-# kept on every cell per request (no outer-row/col-only trimming).
+# 3x3 grid: rows = spawn (B10/B11/B12 = SP2/SP3/SP4), cols = treatment (CA/SE/CASE). Density
+# marginals kept on every cell per request (no outer-row/col-only trimming).
 arch_panel_spawn <- function(trt, blk, leg = FALSE) {
+  # `blk` is the data key used to subset `arch`; spawn_lab(blk) is the printed label.
   d <- arch[treatment == trt & block == blk]
   center <- ggplot(d, aes(MAF0, abs_dAF, colour = tier, group = tier)) +
     geom_point(aes(alpha = tier), size = 1, stroke = 0.5) +
-    annotate("text", x = -Inf, y = Inf, label = paste0(blk, ", ", trt), hjust = -0.15, vjust = 1.4,
+    annotate("text", x = -Inf, y = Inf, label = paste0(spawn_lab(blk), ", ", trt), hjust = -0.15, vjust = 1.4,
              fontface = "bold", size = 4.0) +
     scale_colour_manual(values = tier_cols, drop = FALSE, name = "Tier") +
     scale_alpha_manual(values = c(0.1, 0.2, 0.2), guide = "none") +
@@ -3760,7 +3828,7 @@ arch_panel_spawn <- function(trt, blk, leg = FALSE) {
 spawn_rows <- c("B10", "B11", "B12")
 treat_cols_fig4 <- c("CA", "SE", "CASE")
 
-# single shared legend: turn it on for the B12/SE cell (bottom row, middle column)
+# single shared legend: turn it on for the B12 (= SP4) / SE cell (bottom row, middle column)
 figS16_grid <- lapply(spawn_rows, function(blk) {
   cells <- lapply(treat_cols_fig4, function(trt) {
     arch_panel_spawn(trt, blk, leg = (blk == "B12" && trt == "SE"))
@@ -3803,6 +3871,21 @@ fwrite(go_all, file.path(tab_dir, "TableS3_GO_enrichment.csv"))
 loc_src <- c(CA = "Sig.loci.1.CA.LOC", SE = "Sig.loci.1.SE.LOC", CASE = "Sig.loci.1.CASE.LOC")
 for (tr in names(loc_src))
   file.copy(loc_src[[tr]], file.path(tab_dir, paste0("TableS4_candidate_genes_", tr, ".txt")), overwrite = TRUE)
+
+# Table S6 - spawn identifier mapping. The manuscript labels spawns sequentially (SP1-SP4);
+# the internal lab block IDs are what appear in the raw data files, sample names
+# (e.g. CS.B10.T0.J01), sync column headers, and the deposited sequence records. This table
+# is the bridge between the two, and is generated from spawn_key2lab so it cannot drift.
+tabS6 <- data.frame(
+  Spawn            = unname(spawn_key2lab),
+  Spawn_date       = c("30 August 2016", "13 July 2017", "24 July 2017", "27 July 2017"),
+  Internal_block_ID = names(spawn_key2lab),
+  Data_collected   = c("Phenotype only (not sequenced)",
+                       rep("Phenotype and expressed exome capture sequencing", 3)),
+  stringsAsFactors = FALSE
+)
+write.csv(tabS6, file.path(tab_dir, "TableS6_spawn_id_mapping.csv"), row.names = FALSE)
+print(tabS6)
 ```
 
 ## Table S3: GO enrichment terms by stressor (one row per term)
