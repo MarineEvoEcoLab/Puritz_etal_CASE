@@ -346,7 +346,10 @@ Circumference <- ggplot(final_size, aes(x = Time, y = Circumference, fill = Trea
 ### Fig S1. Larval morphology and development (4-panel)
 
 ```{r figS1-morphology, fig.width=16, fig.height=13}
-figS1 <- (ShellHeight + HingeLength) / (Circumference + NDA.plot) +
+# Panel order must match the Supporting Information legend, which reads:
+#   (A) stacked proportions of normal/deformed/dead, (B) shell height,
+#   (C) hinge length, (D) circumference.
+figS1 <- (NDA.plot + ShellHeight) / (HingeLength + Circumference) +
   plot_annotation(tag_levels = "A",
                   title = "Fig S1. Larval morphology and development")
 save_supp(figS1, "FigS1_morphology.png", width = 16, height = 13)
