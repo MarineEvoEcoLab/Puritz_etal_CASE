@@ -87,41 +87,55 @@ cbPaletteSmall5  <- c("#999999","#E69F00","#0072B2","#009E73")
 # The manuscript uses sequential spawn labels instead. The original numbering had an
 # unexplained gap (6, then 10-12) because only 4 of 12 attempted spawns met the
 # broodstock-provenance criterion; sequential labels avoid inviting that question.
+# The SP prefix (rather than a bare S) keeps spawn labels from colliding with the
+# supplementary figure and table numbering (Fig S1-S16, Table S1-S6).
 #
 #   DATA KEY   LABEL   SPAWN DATE     DATA COLLECTED
-#   B6         SP1      30 Aug 2016    phenotype only (not sequenced)
-#   B10        SP2      13 Jul 2017    phenotype + exome capture
-#   B11        SP3      24 Jul 2017    phenotype + exome capture
-#   B12        SP4      27 Jul 2017    phenotype + exome capture
+#   B6         SP1     30 Aug 2016    phenotype only (not sequenced)
+#   B10        SP2     13 Jul 2017    phenotype + exome capture
+#   B11        SP3     24 Jul 2017    phenotype + exome capture
+#   B12        SP4     27 Jul 2017    phenotype + exome capture
 #
 # Note SP2-SP4 are ALSO phenotyped; the only asymmetry is sequencing. This mapping is
-# reproduced as Table S6 in the Supporting Information (generated from this object in the
-# supp-tables chunk, so it cannot drift). Conversion happens at the point of display only:
-# facet labellers, scale labels, plot titles, and output filenames.
+# reproduced as Table S6 in the Supporting Information (generated from spawn_key2lab in
+# the supp-tables chunk, so it cannot drift). Conversion happens at the point of display
+# only: facet labellers, scale labels, plot titles, and output filenames.
+#
+# The supplemental Rmds keep the same definitions in analysis/spawn_labels.R. If the
+# mapping ever changes, update BOTH.
 spawn_key2lab <- c(B6 = "SP1", B10 = "SP2", B11 = "SP3", B12 = "SP4")
 
-# Accepts any form the data uses: 10, "10", "b10", "B10", "B06" -> returns "SP2", "SP1", ...
+# Accepts any form the data uses: 10, "10", "b10", "B10", "B06" -> "SP2", "SP1", ...
+# Vectorised, so it can be passed directly to ggplot2's `labels =` argument.
 spawn_lab <- function(x) {
   k <- toupper(as.character(x))
   k <- ifelse(grepl("^[0-9]+$", k), paste0("B", as.integer(k)), k)   # 10 / "10" -> "B10"
   k <- sub("^B0+", "B", k)                                           # "B06" -> "B6"
   unname(spawn_key2lab[k])
 }
-# Plain vectorised function for facet strips: facet_*(labeller = labeller(Block = spawn_labeller))
+# Facet strips: facet_*(labeller = labeller(Block = spawn_labeller))
 spawn_labeller <- function(x) spawn_lab(x)
 # All four spawns in manuscript order (phenotype figures); sequenced subset is SP2-SP4.
 spawn_lab_all  <- c("SP1","SP2","SP3","SP4")
 
 # spawn_levels stays on DATA KEYS: it indexes spawn_cols/spawn_shapes, pv_list, and the
 # per-block column suffixes in the sync files. spawn_labels is its display counterpart,
-# passed to `labels =` in the scales so legends read SP2/SP3/SP4.
+# NAMED so ggplot matches labels to breaks by name rather than by position.
 spawn_levels <- c("B10","B11","B12")
-# NAMED so ggplot matches labels to breaks by name, not by position: c(B10="SP2", ...).
 spawn_labels <- setNames(spawn_lab(spawn_levels), spawn_levels)
-# Spawn palette now reuses the Tier palette (Core/Convergent/Private colours),
+# Spawn palette reuses the Tier palette (Core/Convergent/Private colours),
 # repurposed 1:1 for B10/B11/B12 (= SP2/SP3/SP4).
 spawn_cols   <- c(B10="#CC79A7", B11="#D55E00", B12="#F0E442")
 spawn_shapes <- c(B10=21, B11=22, B12=23)
+# ---- ΔAF axis labels ------------------------------------------------------
+# Plotmath so the stressor renders as a true subscript (ΔAF_CASE), not inline text.
+# "AF" and the subscripts are quoted to keep them upright: plotmath italicises bare
+# symbols, which would render AF and CASE as variable names.
+lab_dAF_add       <- expression((Delta*"AF"["CA"] - Delta*"AF"["CON"]) + (Delta*"AF"["SE"] - Delta*"AF"["CON"]))
+lab_dAF_case      <- expression(Delta*"AF"["CASE"] - Delta*"AF"["CON"])
+lab_dAF_add_note  <- expression((Delta*"AF"["CA"] - Delta*"AF"["CON"]) + (Delta*"AF"["SE"] - Delta*"AF"["CON"]) ~~ "[additive expectation]")
+lab_dAF_case_note <- expression(Delta*"AF"["CASE"] - Delta*"AF"["CON"] ~~ "[combined response]")
+
 stat_cols    <- c(Observed="#D7191C", `CON baseline`="#999999", `Random null`="#4D4D4D")
 tier_levels  <- c("Core","Convergent","Private","Background")
 tier_cols    <- c(Core="#0072B2", Convergent="#E69F00", `Private`="#CC79A7", Background="grey80")
@@ -2658,7 +2672,8 @@ run_tier_pca <- function(sync_file, tier_label, out_prefix) {
                                 fill = Treatments, shape = as.factor(Population))) +
     geom_point(size = 10, color = "black", alpha = 0.5) +
     scale_fill_manual(values = cbPaletteSmall, name = "Treatment") +
-    scale_shape_manual(values = c(21, 22, 23), name = "Spawn") +
+    # Population holds the data keys B10-B12; spawn_lab relabels the legend to SP2-SP4.
+    scale_shape_manual(values = c(21, 22, 23), labels = spawn_lab, name = "Spawn") +
     guides(fill  = guide_legend(override.aes = list(shape = 21)),
            shape = guide_legend(override.aes = list(fill = cbPaletteSmall[4]))) +
     base_theme
@@ -2666,8 +2681,8 @@ run_tier_pca <- function(sync_file, tier_label, out_prefix) {
   p_spawn <- ggplot(pca_df, aes(x = PC1, y = PC2,
                                 fill = as.factor(Population), shape = as.factor(Population))) +
     geom_point(size = 10, color = "black", alpha = 0.5) +
-    scale_fill_manual(values = cbPaletteSmall, name = "Spawn") +
-    scale_shape_manual(values = c(21, 22, 23), name = "Spawn") +
+    scale_fill_manual(values = cbPaletteSmall, labels = spawn_lab, name = "Spawn") +
+    scale_shape_manual(values = c(21, 22, 23), labels = spawn_lab, name = "Spawn") +
     guides(fill  = guide_legend(override.aes = list(shape = 21, alpha = 1)),
            shape = "none") +
     base_theme
@@ -2827,8 +2842,8 @@ fig3 <- ggplot(mapping = aes(x, y)) +
   coord_equal(xlim = rng, ylim = rng) +
   # scale_x_continuous(expand=c(0,0), limits = rng) +
   # scale_y_continuous(expand=c(0,0), limits = rng) +
-  labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)   [additive expectation]",
-       y = "ΔAF CASE − ΔAF CON   [combined response]",
+  labs(x = lab_dAF_add_note,
+       y = lab_dAF_case_note,
        title = "Fig 3. Additivity of allele-frequency change",
        subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = spawn") +
   theme_case(12)
@@ -2940,7 +2955,7 @@ figS5 <- ggplot(add_pl_t, aes(x, y)) +
   geom_text(data = ann_t, aes(label = lab), x = rng_t[1], y = rng_t[2],
             hjust = 0, vjust = 1, size = 2.8, inherit.aes = FALSE) +
   facet_wrap(~ tier) + coord_equal(xlim = rng_t, ylim = rng_t) +
-  labs(x = "(ΔAF CA − ΔAF CON) + (ΔAF SE − ΔAF CON)", y = "ΔAF CASE − ΔAF CON",
+  labs(x = lab_dAF_add, y = lab_dAF_case,
        title = "Fig S5. Control-anchored additivity by replication tier",
        subtitle = "dashed = 1:1;  solid = OLS;  dotted = orthogonal") +
   theme_case(12)
@@ -2968,8 +2983,8 @@ ggplot(mapping = aes(x, y)) +
             hjust = 0, vjust = 1, size = 3, lineheight = 0.9, inherit.aes = FALSE) +
   facet_wrap(~ tier, nrow = 1) +
   coord_equal(xlim = rng, ylim = rng) +
-  labs(x = "(dCA − dCON) + (dSE − dCON)   [additive expectation]",
-       y = "dCASE − dCON   [combined response]",
+  labs(x = lab_dAF_add_note,
+       y = lab_dAF_case_note,
        title = "CASE-only additivity, faceted by locus replication tier",
        subtitle = "dashed = additive 1:1;  solid black = per-tier orthogonal fit;  grey = same 10,000-locus background;  colour = spawn") +
   theme_bw()
@@ -2977,7 +2992,7 @@ ggplot(mapping = aes(x, y)) +
 
 # Fig 4. Treatment-exclusive loci and functional enrichment
 
-## 4.1 Block-12 Manhattan, stacked across CA / SE / CASE
+## 4.1 Spawn SP4 (B12) Manhattan, stacked across CA / SE / CASE
 
 ```{r man-helpers}
 lighten_color <- function(col, factor = 0.5) {
@@ -3684,6 +3699,8 @@ figS14 <- (ggplot(he_null_dt, aes(treatment, z, fill = treatment)) +
                   x = NULL, y = "z") + theme_case(11) + theme(legend.position = "none")) /
            (ggplot(he_diag_dt, aes(treatment, pct_matched, fill = block)) +
              geom_col(position = "dodge") + facet_wrap(~ tier) +
+             # `block` holds data keys B10-B12; spawn_lab relabels the legend to SP2-SP4.
+             scale_fill_manual(values = spawn_cols, labels = spawn_lab, name = "Spawn") +
              labs(title = "Fig S14B. Matched-null retention (% of outliers with a shift-matched neutral)",
                   x = NULL, y = "% matched") + theme_case(11))
 save_supp(figS14, "FigS14_He_null_diagnostics.png", width = 9, height = 8)
