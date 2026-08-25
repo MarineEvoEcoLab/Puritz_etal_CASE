@@ -38,7 +38,9 @@ Puritz_etal_CASE/
 │   ├── CASE_FINAL_Mortality.txt
 │   ├── CASE_LARVAL_SIZE.txt
 │   ├── CASE_LNDA.txt
-│   └── Water_Chemistry*.xlsx
+│   ├── Water_Chemistry.csv                # flat export of Water_Chemistry.xlsx (analysis input)
+│   ├── Water_Chemistry*.xlsx              # archival workbooks (CO2SYS output, summary)
+│   └── Water_chemistry_raw/               # raw VINDTA run files
 ├── GO/                             # gene-ontology inputs and enrichment outputs
 ├── figures/                        # generated figures (main/ and supp/)
 ├── results/                        # generated tables and enrichment outputs

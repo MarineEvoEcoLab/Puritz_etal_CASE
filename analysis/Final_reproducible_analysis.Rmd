@@ -88,7 +88,7 @@ cbPaletteSmall5  <- c("#999999","#E69F00","#0072B2","#009E73")
 # unexplained gap (6, then 10-12) because only 4 of 12 attempted spawns met the
 # broodstock-provenance criterion; sequential labels avoid inviting that question.
 # The SP prefix (rather than a bare S) keeps spawn labels from colliding with the
-# supplementary figure and table numbering (Fig S1-S16, Table S1-S6).
+# supplementary figure and table numbering (Fig S1-S16, Table S1-S7).
 #
 #   DATA KEY   LABEL   SPAWN DATE     DATA COLLECTED
 #   B6         SP1     30 Aug 2016    phenotype only (not sequenced)
@@ -97,7 +97,7 @@ cbPaletteSmall5  <- c("#999999","#E69F00","#0072B2","#009E73")
 #   B12        SP4     27 Jul 2017    phenotype + exome capture
 #
 # Note SP2-SP4 are ALSO phenotyped; the only asymmetry is sequencing. This mapping is
-# reproduced as Table S6 in the Supporting Information (generated from spawn_key2lab in
+# reproduced as Table S1 in the Supporting Information (generated from spawn_key2lab in
 # the supp-tables chunk, so it cannot drift). Conversion happens at the point of display
 # only: facet labellers, scale labels, plot titles, and output filenames.
 #
@@ -254,6 +254,83 @@ cat(sprintf("\nInteraction CA1:SE1: beta = %.3f, p = %.3g  (n.s. => phenotype is
 m_ob <- tryCatch(glmmTMB(p ~ CA * SE + (1 | Block), family = ordbeta, data = sd_glmm),
                  error = function(e) NULL)
 if (!is.null(m_ob)) { cat("\n--- ordered-beta cross-check (proportion) ---\n"); print(summary(m_ob)$coefficients$cond) }
+```
+
+## Carbonate chemistry (Table S2)
+
+Treatment verification. Both TA and DIC were measured directly for every sample, and the
+full carbonate system was solved in CO2SYS v2.1.
+
+The analysis reads `../data/Water_Chemistry.csv`, a flat export of Sheet1 of the original
+`Water_Chemistry.xlsx` (kept alongside it as the archival copy). The export collapses the
+workbook's two-row header into one, drops the two blank spacer columns, and suffixes the
+duplicated CO2SYS parameter names `_in` / `_out` by condition set, so no spreadsheet-reading
+package is needed to knit this document.
+
+Two things to note about how the chemistry is read out of that file:
+
+1. **Condition set.** CO2SYS was run with the VINDTA analysis temperature (25 °C) as the
+   *input* condition and the measured in-situ temperature (~19 °C) as the *output*
+   condition. The values larvae actually experienced are therefore the **`out`** columns.
+   Reading the `in` columns instead inflates pCO2 by roughly 20% (e.g. SP1 control:
+   391 µatm in situ vs 498 µatm at 25 °C) and makes the treatments appear to miss their
+   nominal 400 / 2,800 ppm set points when in fact they hit them.
+2. **SP1 initial-sample label swap.** In the SP1 (B6) mixing-tank samples the SE and CASE
+   labels are transposed: `CS_B6_SE` reads fully acidified and `CS_B6_CASE` control-like,
+   the reverse of every SP1 bottle and of all three other spawns. Corrected below; the raw
+   workbook is left untouched so the correction stays visible and auditable.
+
+```{r carbonate-chemistry}
+# Jar -> treatment comes from the mortality design file (block + jar number).
+mort_design <- unique(mort_all[, .(Block, Jar = sub(".*\\.J", "", Name), Treatment)])
+mort_design[, Jar := as.integer(Jar)]
+
+# Water_Chemistry.csv is a flat export of Sheet1 of Water_Chemistry.xlsx: the workbook's
+# two-row header is collapsed to one, the two blank spacer columns are dropped, and the
+# duplicated CO2SYS parameter names are suffixed _in / _out by condition set.
+# The `_out` columns are the in-situ values (see note above) and are the ones used here.
+wc_raw <- fread("../data/Water_Chemistry.csv")
+wc <- wc_raw[, .(name = Sample_Name,
+                 sal  = Salinity_in, temp = t_out,
+                 ta   = TA_in,       dic  = TCO2_in,
+                 pH   = pH_out,      pco2 = pCO2_out, oar = WAr_out)][!is.na(name) & name != ""]
+
+# Sample names are CS_B<block>_<TREAT|J#>_<date>. Three SP4 samples carry a "CA_" prefix
+# typo instead of "CS_", so the regex accepts either.
+wc[, Block := as.integer(sub("^C[SA]_B(\\d+)_.*", "\\1", name))]
+wc[, tag   := sub("^C[SA]_B\\d+_([^_]+)_.*", "\\1", name)]
+wc[, Phase := fifelse(grepl("^J\\d+$", tag), "Post (bottles)", "Initial (mixing tank)")]
+
+# post-exposure bottles: resolve treatment via the design file
+wc[Phase == "Post (bottles)", Jar := as.integer(sub("^J", "", tag))]
+wc <- merge(wc, mort_design, by = c("Block","Jar"), all.x = TRUE)
+wc[Phase == "Initial (mixing tank)", Treatment := tag]
+
+# ---- DOCUMENTED CORRECTION: SP1 initial SE/CASE labels are transposed (see note above)
+wc[Block == 6 & Phase == "Initial (mixing tank)" & Treatment %in% c("SE","CASE"),
+   Treatment := fifelse(Treatment == "SE", "CASE", "SE")]
+
+stopifnot(!any(is.na(wc$Treatment)), nrow(wc) == 64)
+
+msd <- function(v, d) if (length(v) == 1) sprintf(paste0("%.", d, "f"), v) else
+  sprintf(paste0("%.", d, "f ± %.", d, "f"), mean(v), sd(v))
+
+tabS2 <- wc[, .(n = .N,
+                Salinity   = msd(sal, 2),  Temp_C    = msd(temp, 2),
+                TA_umol_kg = msd(ta, 0),   DIC_umol_kg = msd(dic, 0),
+                pH_total   = msd(pH, 3),   pCO2_uatm = msd(pco2, 0),
+                Omega_Ar   = msd(oar, 2)),
+            by = .(Spawn = spawn_lab(Block),
+                   Treatment = factor(Treatment, levels = treat_levels),
+                   Phase = factor(Phase, levels = c("Initial (mixing tank)","Post (bottles)")))]
+setorder(tabS2, Phase, Spawn, Treatment)
+write.csv(tabS2, file.path(tab_dir, "TableS2_carbonate_chemistry.csv"), row.names = FALSE)
+
+# pooled post-exposure summary quoted in the Results
+cat("\n--- Post-exposure bottles, pooled across spawns (in situ) ---\n")
+print(wc[Phase == "Post (bottles)",
+         .(n = .N, pH = msd(pH, 3), pCO2 = msd(pco2, 0), Omega_Ar = msd(oar, 2)),
+         by = .(Treatment = factor(Treatment, levels = treat_levels))][order(Treatment)])
 ```
 
 ## Fig 1. Four-spawn survival strip
@@ -413,7 +490,7 @@ Each block was filtered for missing data less than 10% and MAF of > 0.015 based 
 > VCF, the sync column headers, and the intermediate `.pos` / `.input` / `.sync` filenames.
 > These are **data keys and are intentionally not renamed.** The manuscript reports these
 > same three spawns as **SP2, SP3, and SP4** (and the unsequenced phenotype-only spawn `B6` as
-> **SP1**); see the `spawn_key2lab` mapping in the setup chunk and Table S6. Conversion to
+> **SP1**); see the `spawn_key2lab` mapping in the setup chunk and Table S1. Conversion to
 > the S-labels happens only where a value is drawn or printed.
 
 
@@ -2119,10 +2196,10 @@ cat("data-driven clusters:", uniqueN(clG$cluster_id),
     "| stress-highlighted:", nrow(go_clusters_stress), "\n")
 ```
 
-## Table 1 and Table S5
+## Table 1 and Table S7
 
 `Table 1` is the cluster-level summary of the stress-relevant clusters printed in
-the manuscript. `Table S5` is the full member-gene listing for every cluster, one
+the manuscript. `Table S7` is the full member-gene listing for every cluster, one
 row per cluster x term x gene, with the enriched stressor sets flagged. Both are
 derived from `clG`, so they cannot drift from the clustering above.
 
@@ -2135,7 +2212,7 @@ setnames(table1, c("n", "case_only"), c("n_terms", "case_only_cluster"))
 table1[, case_only_cluster := fifelse(case_only_cluster, "yes", "no")]
 fwrite(table1, file.path(tab_dir, "Table1_GO_clusters.csv"))
 
-## ---- Table S5: member genes for every cluster ------------------------------
+## ---- Table S7: member genes for every cluster ------------------------------
 ## genes are pooled across the three per-stressor GO tables so that CA-only and
 ## SE-only clusters are populated too; the three flags record which sets a gene
 ## was enriched in.
@@ -2153,22 +2230,22 @@ go_gene_flags[, `:=`(enriched_in_CA   = fifelse(CA   > 0L, "yes", "no"),
                      enriched_in_SE   = fifelse(SE   > 0L, "yes", "no"),
                      enriched_in_CASE = fifelse(CASE > 0L, "yes", "no"))]
 
-tableS5 <- merge(
+tableS7 <- merge(
   clG[, .(cluster_id, cluster, stress, case_only, GO, Term, Fisher)],
   go_gene_flags[, .(GO, gene_LOC, enriched_in_CA, enriched_in_SE, enriched_in_CASE)],
   by = "GO", allow.cartesian = TRUE)
-tableS5[, `:=`(stress_relevant   = fifelse(stress, "yes", "no"),
+tableS7[, `:=`(stress_relevant   = fifelse(stress, "yes", "no"),
                case_only_cluster = fifelse(case_only, "yes", "no"))]
-tableS5 <- tableS5[order(cluster_id, Fisher, gene_LOC),
+tableS7 <- tableS7[order(cluster_id, Fisher, gene_LOC),
                    .(cluster_id, cluster, stress_relevant, case_only_cluster,
                      GO, Term, Fisher, gene_LOC,
                      enriched_in_CA, enriched_in_SE, enriched_in_CASE)]
-fwrite(tableS5, file.path(tab_dir, "TableS5_GO_cluster_member_genes.csv"))
+fwrite(tableS7, file.path(tab_dir, "TableS7_GO_cluster_member_genes.csv"))
 
 cat("Table 1 rows:", nrow(table1),
-    "| Table S5 rows:", nrow(tableS5),
-    "| unique genes:", uniqueN(tableS5$gene_LOC),
-    "| clusters covered:", uniqueN(tableS5$cluster_id), "\n")
+    "| Table S7 rows:", nrow(tableS7),
+    "| unique genes:", uniqueN(tableS7$gene_LOC),
+    "| clusters covered:", uniqueN(tableS7$cluster_id), "\n")
 cat("CASE-only clusters:",
     paste(table1[case_only_cluster == "yes", cluster], collapse = "; "), "\n")
 ```
@@ -3865,38 +3942,38 @@ figS16
 # Supplementary tables
 
 ```{r supp-tables}
-# Table S1 - locus counts by tier x treatment
+# Table S3 - locus counts by tier x treatment
 tier_count <- function(df, tier) data.frame(Tier = tier,
   CA   = sum(asL(df$Sig.CA),   na.rm = TRUE),
   SE   = sum(asL(df$Sig.SE),   na.rm = TRUE),
   CASE = sum(asL(df$Sig.CASE), na.rm = TRUE),
   Total = nrow(df))
-tabS1 <- rbind(tier_count(core.sig, "Core"),
+tabS3 <- rbind(tier_count(core.sig, "Core"),
                tier_count(convergent.sig, "Convergent"),
                tier_count(private.sig, "Private"))
-write.csv(tabS1, file.path(tab_dir, "TableS1_tier_locus_counts.csv"), row.names = FALSE)
-print(tabS1)
+write.csv(tabS3, file.path(tab_dir, "TableS3_tier_locus_counts.csv"), row.names = FALSE)
+print(tabS3)
 
-# Table S2 - full significant-loci table (tier + treatment flags)
+# Table S4 - full significant-loci table (tier + treatment flags)
 write.csv(as.data.frame(grouped_total.sig),
-          file.path(tab_dir, "TableS2_significant_loci.csv"), row.names = FALSE)
+          file.path(tab_dir, "TableS4_significant_loci.csv"), row.names = FALSE)
 
-# Table S3 - GO enrichment (per-stressor topGO results, combined)
+# Table S5 - GO enrichment (per-stressor topGO results, combined)
 go_all <- rbindlist(lapply(c("ALL","CA","SE","CASE"), function(tr) {
   d <- fread(file.path("./GO", paste0(tr, "_GO_en_sig_gene.csv"))); d$stressor <- tr; d
 }), fill = TRUE)
-fwrite(go_all, file.path(tab_dir, "TableS3_GO_enrichment.csv"))
+fwrite(go_all, file.path(tab_dir, "TableS5_GO_enrichment.csv"))
 
-# Table S4 - candidate gene lists per stressor
+# Table S6 - candidate gene lists per stressor
 loc_src <- c(CA = "Sig.loci.1.CA.LOC", SE = "Sig.loci.1.SE.LOC", CASE = "Sig.loci.1.CASE.LOC")
 for (tr in names(loc_src))
-  file.copy(loc_src[[tr]], file.path(tab_dir, paste0("TableS4_candidate_genes_", tr, ".txt")), overwrite = TRUE)
+  file.copy(loc_src[[tr]], file.path(tab_dir, paste0("TableS6_candidate_genes_", tr, ".txt")), overwrite = TRUE)
 
-# Table S6 - spawn identifier mapping. The manuscript labels spawns sequentially (SP1-SP4);
+# Table S1 - spawn identifier mapping. The manuscript labels spawns sequentially (SP1-SP4);
 # the internal lab block IDs are what appear in the raw data files, sample names
 # (e.g. CS.B10.T0.J01), sync column headers, and the deposited sequence records. This table
 # is the bridge between the two, and is generated from spawn_key2lab so it cannot drift.
-tabS6 <- data.frame(
+tabS1 <- data.frame(
   Spawn            = unname(spawn_key2lab),
   Spawn_date       = c("30 August 2016", "13 July 2017", "24 July 2017", "27 July 2017"),
   Internal_block_ID = names(spawn_key2lab),
@@ -3904,11 +3981,11 @@ tabS6 <- data.frame(
                        rep("Phenotype and expressed exome capture sequencing", 3)),
   stringsAsFactors = FALSE
 )
-write.csv(tabS6, file.path(tab_dir, "TableS6_spawn_id_mapping.csv"), row.names = FALSE)
-print(tabS6)
+write.csv(tabS1, file.path(tab_dir, "TableS1_spawn_id_mapping.csv"), row.names = FALSE)
+print(tabS1)
 ```
 
-## Table S3: GO enrichment terms by stressor (one row per term)
+## Table S5: GO enrichment terms by stressor (one row per term)
 
 The Fig S8-S10 dot plots are dense; the tables below give the same topGO
 results (deduplicated to one row per GO term) in a readable form, sorted
@@ -3933,7 +4010,7 @@ if (nrow(go_all)) {
   for (tr in c("ALL", "CA", "SE", "CASE")) {
     d <- go_term_table(go_all, tr)
     if (nrow(d) > 0) {
-      cat(paste0("\n### Table S3", go_table_letters[[tr]], ". ",
+      cat(paste0("\n### Table S5", go_table_letters[[tr]], ". ",
                  go_table_labels[[tr]], "\n\n"))
       print(kable(d, row.names = FALSE,
                    caption = paste0("GO enrichment terms: ", go_table_labels[[tr]])) %>%
