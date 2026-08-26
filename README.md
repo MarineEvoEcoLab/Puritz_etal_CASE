@@ -72,7 +72,7 @@ Reproducible outliers are assigned hierarchically to one of three tiers, each lo
 - **Convergent** — resolved only in the pooled across-spawn CMH (per-spawn q < 0.01 in ≥1 spawn and across-spawn q < 0.0001); individually weak, polygenic signal. 1,040 loci total (62 CA, 166 SE, 812 CASE).
 - **Private** — top 1% of per-treatment q-values among control-insignificant loci, using spawn-specific thresholds; rarer alleles with larger, background-dependent shifts. 1,121 loci total (233 CA, 249 SE, 639 CASE).
 
-Effective population size and per-spawn q thresholds are set per spawn to account for differences in breeder number and coverage (e.g., Ne = 250 for SP2 vs. 1,000 for SP3/SP4). See the analysis notebook and manuscript methods for exact values. *(Tiers were renamed from an earlier Aggregate/Block-Specific scheme; the names and thresholds above reflect the 2026-08-25 manuscript draft.)*
+Effective population size and per-spawn q thresholds are set per spawn to account for differences in breeder number and coverage (e.g., Ne = 250 for SP2 vs. 1,000 for SP3/SP4). See the analysis notebook and manuscript methods for exact values. 
 
 ## Reproducing the analysis
 
