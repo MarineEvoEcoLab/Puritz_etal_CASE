@@ -4,6 +4,12 @@ Data and reproducible analysis code for a multiple-stressor selection experiment
 
 > **Status:** Manuscript in preparation. This repository is under active development and results should be considered preliminary until the paper is published. A companion RNAseq paper using the same experimental design is also in progress.
 
+## Authors
+
+- **Jonathan B. Puritz** — Department of Biological Sciences, University of Rhode Island
+- **Johanna Harvey** — University of Rhode Island
+- **Katie Lotterhos** — Northeastern University, Marine Science Center
+
 ## Background
 
 Coastal marine organisms rarely face one stressor at a time. In urbanized estuaries, eutrophication from sewage effluent drives coupled low-oxygen and acidified conditions that climate change is expected to intensify. *C. virginica* larvae are especially vulnerable during their short pelagic stage, yet the combined genomic response to acidification and sewage effluent had not been characterized.
