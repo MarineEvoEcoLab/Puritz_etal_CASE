@@ -12,7 +12,7 @@ Data and reproducible analysis code for a multiple-stressor selection experiment
 
 ## Background
 
-Coastal marine organisms rarely face one stressor at a time. In urbanized estuaries, eutrophication from sewage effluent drives coupled low-oxygen and acidified conditions that climate change is expected to intensify. *C. virginica* larvae are especially vulnerable during their short pelagic stage, yet the combined genomic response to acidification and sewage effluent had not been characterized.
+Coastal marine organisms rarely face one stressor at a time. In urbanized estuaries, eutrophication couples coastal acidification (CA) to sewage effluent (SE): nutrient loading stimulates microbial CO₂ production, and even treated effluent runs lower in pH and higher in CO₂ than ambient seawater. CA and SE have been characterized separately but never together in an early life stage.
 
 Wild-broodstock larvae were exposed for 24 hours to one of four treatments in a 2 × 2 factorial design crossing CA and SE:
 
@@ -23,54 +23,67 @@ Wild-broodstock larvae were exposed for 24 hours to one of four treatments in a 
 | **SE**    | control | 5% v/v treated effluent |
 | **CASE**  | ~2,800 µatm pCO₂ | 5% v/v treated effluent |
 
-Pooled expressed exome capture sequencing (EecSeq) estimated allele frequencies before and after exposure across three independent spawning blocks (spawns SP2, SP3, SP4; internal block IDs B10, B11, B12; Block 6 was phenotyped but not sequenced). Loci under selection were identified with Cochran–Mantel–Haenszel (CMH) tests across replicate blocks, with control-treatment outliers removed to minimize experimental artifacts and maternal effects.
+Larvae came from four independent spawns (SP1–SP4, wild broodstock from Ipswich and Barnstable, MA, 2016–2017), each an independent genetic background. SP1 was phenotyped for survival only; SP2, SP3, and SP4 were also sequenced. Pooled expressed exome capture sequencing (EecSeq) estimated allele frequencies before and after exposure in each sequenced spawn, and loci under selection were identified with an adapted Cochran–Mantel–Haenszel (CMH) test (ACER) within and across spawns, with control-significant loci removed to minimize experimental artifacts and family/maternal effects.
 
 ### Key findings
 
-- **Synergistic mortality** under combined CASE conditions: CA alone caused no significant mortality, SE alone caused significant mortality, and CASE caused the highest.
-- **Genomic differentiation** across all three stressor treatments relative to controls.
-- **Functional enrichment** of CASE selection candidates in protein folding, ubiquitin–proteasome catabolism, and cilium assembly.
+*(as of the 2026-08-25 manuscript draft; see `CASE_manuscript_PLOSGenetics.docx` for the current text)*
+
+- **Mortality was additive, not synergistic.** Survival declined CON > CA > SE > CASE. CA alone never differed from control; CASE was statistically indistinguishable from SE alone (Tukey *p* ≈ 1.0). A factorial CA × SE GLMM found no significant interaction (*p* = 0.88) — effluent, not acidification, drove the mortality effect.
+- **The genomic response was compositionally synergistic even though its magnitude stayed additive.** CASE recruited far more exclusive loci and genes than CA and SE combined (1,941 CASE-exclusive loci vs. 1,136 for CA + SE combined), while the aggregate size of allele-frequency change tracked the additive sum of the single-stressor effects (orthogonal-regression slope ≈ 0.99).
+- **Outlier reproducibility across spawns rose with stressor complexity even as enrichment over baseline fell.** Loci replicating in ≥2 of 3 spawns increased from 222 (CA) to 647 (SE) to 1,197 (CASE), while fold-enrichment over a control-matched null fell from 403× to 235× to 116×.
+- **Functional enrichment.** All three treatments were enriched for proteostasis (ubiquitin–proteasome pathways). CASE alone added ribosomal/translational-repression, mitochondrial calcium import, calcium-dependent proteolysis, ER-associated degradation, and a steroid-metabolizing (CYP17-like) module consistent with effluent-linked endocrine disruption.
+- **Selection acted across a continuum of effect sizes.** Common, replicated (Core) loci showed small, consistent frequency shifts; rare (Private) loci carried larger, background-dependent shifts, with diversity (expected heterozygosity) rising at selected loci in a roughly 5–6-fold gradient from Core to Private.
 
 ## Repository structure
 
 ```
 Puritz_etal_CASE/
-├── analysis/                       # R Markdown reproducible analysis
-│   ├── Final_reproducible_analysis.Rmd   # main pipeline (survival → outliers → genomic synergy → tiers)
-│   ├── Final_reproducible_analysis.md     # knitted output
-│   └── sorted.ref3.0.exon*.bed            # exon annotation (capture target regions)
-├── scripts/                        # preprocessing & pop-gen utilities (see below)
-├── data/                           # phenotype & water-chemistry inputs
+├── analysis/                               # R Markdown reproducible analysis
+│   ├── Final_reproducible_analysis.Rmd         # main pipeline (survival → outliers → genomic synergy → tiers)
+│   ├── Final_reproducible_analysis.md          # knitted output
+│   ├── CASE_survival_synergy_test.Rmd          # additive-vs-synergistic mortality test
+│   ├── CASE_diversity_He_test.Rmd              # He excess vs. matched-null test at selected loci
+│   ├── CASE_supplemental_He_and_additivity.Rmd
+│   ├── CASE_supplemental_GO_background_and_He_null.Rmd
+│   ├── spawn_labels.R                          # canonical SP1–SP4 spawn-label mapping
+│   ├── sorted.ref3.0.exon*.bed                 # exon annotation (capture target regions)
+│   ├── GO/                                     # GO enrichment inputs/outputs, per treatment and tier
+│   ├── figures/                                # generated figures (main/ and supp/)
+│   └── results/                                # generated tables (additivity, interaction, He-null tests)
+├── scripts/                                # preprocessing & pop-gen utilities (see below)
+├── data/                                    # phenotype & water-chemistry inputs
 │   ├── CASE_FINAL_Mortality.txt
 │   ├── CASE_LARVAL_SIZE.txt
 │   ├── CASE_LNDA.txt
-│   ├── Water_Chemistry.csv                # flat export of Water_Chemistry.xlsx (analysis input)
-│   ├── Water_Chemistry*.xlsx              # archival workbooks (CO2SYS output, summary)
-│   └── Water_chemistry_raw/               # raw VINDTA run files
-├── GO/                             # gene-ontology inputs and enrichment outputs
-├── figures/                        # generated figures (main/ and supp/)
-├── results/                        # generated tables and enrichment outputs
-├── CASE_methods_draft.md           # materials & methods working draft
-└── CASE_environment.yaml           # conda environment for the bioinformatics pipeline
+│   ├── Water_Chemistry.csv                     # flat export of Water_Chemistry.xlsx (analysis input)
+│   ├── Water_Chemistry*.xlsx                   # archival workbooks (CO2SYS output, summary)
+│   └── Water_chemistry_raw/                    # raw VINDTA run files
+├── figures_final_v2/                       # current manuscript-ready figure exports
+├── results/                                 # older per-spawn figure/GO exports (pre spawn-rename naming)
+├── CASE_environment.yaml                   # conda environment for the bioinformatics pipeline
+└── random_draw_environment.yaml            # environment for T0 pseudo-replicate resampling
 ```
+
+> Materials & methods live in `CASE_manuscript_PLOSGenetics.docx` rather than a standalone file.
 
 ## Pipeline overview
 
 The full path from raw reads to figures has two stages.
 
-**1. Bioinformatic preprocessing** (bash/Python/Perl, `scripts/`). Read assembly and mapping with `dDocent` (`dDocent_ngs_3.1`), variant calling and filtering (`CASE_PVCF_filter2.sh`), conversion of the filtered VCF to PoPoolation2 synchronized format (`VCFtoPopPool.py`), coverage augmentation (`add_cov_sync`, `add_cov_sync_IS`), allele-frequency polarization (`polarize_freqs`), pool subsampling (`sub_sample.py`, `subsample-synchronized.pl`), and CMH/frequency-difference estimation (`snp-frequency-diff.pl`). GO theme clustering uses `go_cluster_themes.py`. These steps require external tools and large intermediates and are documented as `eval=FALSE` commands in the analysis notebook.
+**1. Bioinformatic preprocessing** (bash/Python/Perl, `scripts/`). Read assembly and mapping with `dDocent` (`dDocent_ngs_3.1`), variant calling and filtering (`CASE_PVCF_filter2.sh`), conversion of the filtered VCF to PoPoolation2 synchronized format (`VCFtoPopPool.py`), coverage augmentation (`add_cov_sync`, `add_cov_sync_IS`), allele-frequency polarization (`polarize_freqs`), and pool subsampling (`sub_sample.py`, `subsample-synchronized.pl`). Per spawn, the four initial-timepoint (T0) libraries are pooled and resampled (`sum.sh`, `sub_sample.py`) into depth-matched pseudo-replicates matching the number of post-exposure replicates, so pre/post pools are directly comparable. CMH/frequency-difference estimation uses `snp-frequency-diff.pl`. These steps require external tools and large intermediates and are documented as `eval=FALSE` commands in the analysis notebook.
 
-**2. Statistical analysis and figures** (R, `analysis/`). `Final_reproducible_analysis.Rmd` is the single entry point. It loads the allele-frequency and CMH objects, applies FDR control (`qvalue`), assigns loci to confidence tiers, and builds the main figures and supplements. The document is organized around the manuscript figures (survival → outliers & repeatability → genomic synergy → tier architecture).
+**2. Statistical analysis and figures** (R, `analysis/`). `Final_reproducible_analysis.Rmd` is the main entry point, using canonical spawn labels from `spawn_labels.R`. It loads the allele-frequency and CMH objects, applies FDR control (`qvalue`, π₀ = 1), assigns loci to confidence tiers, and builds the main figures and supplements. Four supplemental R Markdown documents cover the survival-additivity test, the He/matched-null diversity test, and additional GO-background and additivity checks. The pipeline is organized around the manuscript's results order (survival → outliers & repeatability → genomic synergy → tier architecture → diversity).
 
 ### Locus confidence tiers
 
-Selection candidates are grouped into three tiers of increasing stringency:
+Reproducible outliers are assigned hierarchically to one of three tiers, each locus appearing once:
 
-- **Core** — replicated across multiple blocks; highest confidence.
-- **Aggregate** — significant per-block plus a stringent across-block threshold.
-- **Block-Specific** — top per-block outliers not captured by the other tiers.
+- **Core** — q < 0.10 in all three sequenced spawns, or q < 0.05 in at least two; common alleles with small, consistent shifts reflecting parallel selection on standing variation. 5,312 loci total (662 CA, 1,661 SE, 2,989 CASE).
+- **Convergent** — resolved only in the pooled across-spawn CMH (per-spawn q < 0.01 in ≥1 spawn and across-spawn q < 0.0001); individually weak, polygenic signal. 1,040 loci total (62 CA, 166 SE, 812 CASE).
+- **Private** — top 1% of per-treatment q-values among control-insignificant loci, using spawn-specific thresholds; rarer alleles with larger, background-dependent shifts. 1,121 loci total (233 CA, 249 SE, 639 CASE).
 
-Per-block significance thresholds are corrected for known differences among blocks (e.g., drift inflation from fewer broodstock, lower coverage/power); multi-block replication in the Core tier controls for drift without correction. See the analysis notebook for exact thresholds.
+Effective population size and per-spawn q thresholds are set per spawn to account for differences in breeder number and coverage (e.g., Ne = 250 for SP2 vs. 1,000 for SP3/SP4). See the analysis notebook and manuscript methods for exact values. *(Tiers were renamed from an earlier Aggregate/Block-Specific scheme; the names and thresholds above reflect the 2026-08-25 manuscript draft.)*
 
 ## Reproducing the analysis
 
@@ -81,15 +94,15 @@ conda env create -f CASE_environment.yaml
 conda activate CASE
 ```
 
-**R analysis.** Render the main notebook from the repository root:
+**R analysis.** Analyses in the manuscript were run under R 3.6.0. Render the main notebook from the repository root:
 
 ```r
 rmarkdown::render("analysis/Final_reproducible_analysis.Rmd")
 ```
 
-Required R packages: `ggplot2`, `tidyr`, `plyr`, `dplyr`, `qvalue`, `stringr`, `pcadapt`, `poolSeq`, `ACER`, `scales`, `data.table`, `patchwork`, `ggridges`, `ggrain`, `grid`, `ggman`, `VennDiagram`, `topGO`, `kableExtra`, `glmmTMB`, and `igraph`. `png` is also required (called via `png::readPNG` when assembling figure panels). Figures are written to `figures/main/` and `figures/supp/`; tables to `results/tables/`.
+Required R packages: `ggplot2`, `tidyr`, `plyr`, `dplyr`, `qvalue`, `stringr`, `pcadapt`, `poolSeq`, `ACER`, `scales`, `data.table`, `patchwork`, `ggridges`, `ggrain`, `grid`, `ggman`, `VennDiagram`, `topGO`, `kableExtra`, `glmmTMB`, and `igraph`. `png` is also required (called via `png::readPNG` when assembling figure panels). Figures are written to `analysis/figures/main/` and `analysis/figures/supp/`; tables to `analysis/results/`.
 
-> Raw sequencing reads and large intermediate files are not tracked in this repository. Add a data-availability note (e.g., NCBI SRA/BioProject accession) here once deposited.
+> Raw sequencing reads are not yet deposited — the manuscript's data-availability statement currently has a placeholder for the NCBI SRA/BioProject accession. Large intermediate files are not tracked in this repository.
 
 ## Data and permits
 
@@ -97,7 +110,7 @@ Wild broodstock were collected under Massachusetts Division of Marine Fisheries 
 
 ## Citation
 
-A citation will be added here once the manuscript is published.
+Working title (target journal: PLOS Genetics): *"Synergistic selection across the genome of eastern oyster larvae under coastal acidification and sewage effluent: a CASE study."* A full citation will be added once the manuscript is published.
 
 ## Contact
 
