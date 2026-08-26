@@ -27,8 +27,6 @@ Larvae came from four independent spawns (SP1–SP4, wild broodstock from Ipswic
 
 ### Key findings
 
-*(as of the 2026-08-25 manuscript draft; see `CASE_manuscript_PLOSGenetics.docx` for the current text)*
-
 - **Mortality was additive, not synergistic.** Survival declined CON > CA > SE > CASE. CA alone never differed from control; CASE was statistically indistinguishable from SE alone (Tukey *p* ≈ 1.0). A factorial CA × SE GLMM found no significant interaction (*p* = 0.88) — effluent, not acidification, drove the mortality effect.
 - **The genomic response was compositionally synergistic even though its magnitude stayed additive.** CASE recruited far more exclusive loci and genes than CA and SE combined (1,941 CASE-exclusive loci vs. 1,136 for CA + SE combined), while the aggregate size of allele-frequency change tracked the additive sum of the single-stressor effects (orthogonal-regression slope ≈ 0.99).
 - **Outlier reproducibility across spawns rose with stressor complexity even as enrichment over baseline fell.** Loci replicating in ≥2 of 3 spawns increased from 222 (CA) to 647 (SE) to 1,197 (CASE), while fold-enrichment over a control-matched null fell from 403× to 235× to 116×.
@@ -57,7 +55,6 @@ Puritz_etal_CASE/
 └── random_draw_environment.yaml            # environment for T0 pseudo-replicate resampling
 ```
 
-> Materials & methods live in `CASE_manuscript_PLOSGenetics.docx` rather than a standalone file.
 
 ## Pipeline overview
 
