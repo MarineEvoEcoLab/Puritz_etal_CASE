@@ -41,12 +41,6 @@ Larvae came from four independent spawns (SP1–SP4, wild broodstock from Ipswic
 Puritz_etal_CASE/
 ├── analysis/                               # R Markdown reproducible analysis
 │   ├── Final_reproducible_analysis.Rmd         # main pipeline (survival → outliers → genomic synergy → tiers)
-│   ├── Final_reproducible_analysis.md          # knitted output
-│   ├── CASE_survival_synergy_test.Rmd          # additive-vs-synergistic mortality test
-│   ├── CASE_diversity_He_test.Rmd              # He excess vs. matched-null test at selected loci
-│   ├── CASE_supplemental_He_and_additivity.Rmd
-│   ├── CASE_supplemental_GO_background_and_He_null.Rmd
-│   ├── spawn_labels.R                          # canonical SP1–SP4 spawn-label mapping
 │   ├── sorted.ref3.0.exon*.bed                 # exon annotation (capture target regions)
 │   ├── GO/                                     # GO enrichment inputs/outputs, per treatment and tier
 │   ├── figures/                                # generated figures (main/ and supp/)
