@@ -7,8 +7,8 @@ Data and reproducible analysis code for a multiple-stressor selection experiment
 ## Authors
 
 - **Jonathan B. Puritz** — Department of Biological Sciences, University of Rhode Island
-- **Johanna Harvey** — University of Rhode Island
-- **Katie Lotterhos** — Northeastern University, Marine Science Center
+- **Johanna Harvey** — Department of Natural Resources Science, University of Rhode Island
+- **Katie Lotterhos** — Marine Science Center, Northeastern University
 
 ## Background
 
