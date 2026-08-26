@@ -59,8 +59,6 @@ Puritz_etal_CASE/
 │   ├── Water_Chemistry.csv                     # flat export of Water_Chemistry.xlsx (analysis input)
 │   ├── Water_Chemistry*.xlsx                   # archival workbooks (CO2SYS output, summary)
 │   └── Water_chemistry_raw/                    # raw VINDTA run files
-├── figures_final_v2/                       # current manuscript-ready figure exports
-├── results/                                 # older per-spawn figure/GO exports (pre spawn-rename naming)
 ├── CASE_environment.yaml                   # conda environment for the bioinformatics pipeline
 └── random_draw_environment.yaml            # environment for T0 pseudo-replicate resampling
 ```
