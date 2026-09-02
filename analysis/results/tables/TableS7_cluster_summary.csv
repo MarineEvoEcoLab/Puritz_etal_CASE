@@ -1,0 +1,19 @@
+ID,Cluster,Stress-relevant,CASE-only,Terms,Member genes
+1,Ubiquitin-proteasome / translational repression,yes,no,6,139
+2,Other: structural constituent of ribosome,no,no,9,66
+3,Translation initiation,yes,no,7,28
+4,Protein folding / chaperone,yes,no,15,133
+5,Other: actin filament binding,no,no,16,36
+6,Acid-base / V-type ATPase,yes,no,4,10
+7,Mitochondrial calcium,yes,yes,3,3
+8,Cilium / ciliary motility,yes,no,16,44
+9,Stress granule / mRNA processing,yes,no,8,11
+10,Other: cytoskeleton,no,no,10,29
+11,Na/K ionoregulation,yes,no,4,4
+12,Other: cell-cell adhesion mediator activity,no,yes,3,10
+13,Other: chromatin binding,no,no,3,16
+14,Ubiquitin ligase / proteolysis,yes,yes,4,5
+15,Other: intracellular signal transduction,no,no,3,13
+16,Other: syntaxin binding,no,no,4,7
+17,Steroid / progesterone metabolism,yes,yes,3,2
+18,Other: protein tyrosine kinase activity,no,no,6,6
