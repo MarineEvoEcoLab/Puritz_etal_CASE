@@ -357,17 +357,27 @@ fig1b <- ggplot(mort_end2, aes(Treatment, Survival, fill = Treatment)) +
 fig1b
 ```
 
-## Fig 1. Assemble with PowerPoint schematic
+## Fig 1B. Tier inference schematic
 
-```{r fig1-assemble, fig.width=14, fig.height=9}
+```{r fig1-tiers, fig.width=14, fig.height=5}
+# Illustrative (not data-driven) schematic of how loci are classified: control filter,
+# per-spawn significance, pooled CMH, and the Core / Convergent / Private tiers. Uses
+# tier_cols, tier_shape, and stat_cols from the palette block. Defines `fig1_tiers`.
+source("fig1_tier_schematic.R")
+fig1_tiers
+```
+
+## Fig 1. Assemble: design schematic (A), tier schematic (B), survival (C)
+
+```{r fig1-assemble, fig.width=14, fig.height=14}
 fig1_top_png <- png::readPNG("../data/Fig1Panel1_top.png")
 fig1_top <- patchwork::wrap_elements(full = grid::rasterGrob(fig1_top_png, interpolate = TRUE))
 
-fig1 <- fig1_top / fig1b +
-  plot_layout(heights = c(1, 0.6)) 
-  # plot_annotation(tag_levels = "A")
+fig1 <- fig1_top / fig1_tiers / fig1b +
+  plot_layout(heights = c(1, 0.85, 0.7)) +
+  plot_annotation(tag_levels = "A")
 fig1
-save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 9)
+save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 14)
 ```
 ## Larval development and size
 
