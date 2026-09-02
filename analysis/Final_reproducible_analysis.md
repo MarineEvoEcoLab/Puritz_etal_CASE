@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-08-25
+2026-09-02
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -10,8 +10,9 @@ Jonathan Puritz
   - [Survival statistics](#survival-statistics)
   - [Carbonate chemistry (Table S2)](#carbonate-chemistry-table-s2)
   - [Fig 1. Four-spawn survival strip](#fig-1-four-spawn-survival-strip)
-  - [Fig 1. Assemble with PowerPoint
-    schematic](#fig-1-assemble-with-powerpoint-schematic)
+  - [Fig 1B. Tier inference schematic](#fig-1b-tier-inference-schematic)
+  - [Fig 1. Assemble: design schematic (A), tier schematic (B), survival
+    (C)](#fig-1-assemble-design-schematic-a-tier-schematic-b-survival-c)
   - [Larval development and size](#larval-development-and-size)
     - [Fig S1. Larval morphology and development
       (4-panel)](#fig-s1-larval-morphology-and-development-4-panel)
@@ -542,22 +543,97 @@ fig1b
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig1-survival-1.png)<!-- -->
 
-## Fig 1. Assemble with PowerPoint schematic
+## Fig 1B. Tier inference schematic
+
+``` r
+# Illustrative (not data-driven) schematic of how loci are classified: control filter,
+# per-spawn significance, pooled CMH, and the Core / Convergent / Private tiers. Uses
+# tier_cols, tier_shape, and stat_cols from the palette block. Defines `fig1_tiers`.
+
+sig_fill <- c(sig = "#4D4D4D", ns = "grey88", na = "white")
+strike_col <- "#D7191C"          # stat_cols["Observed"]
+
+col_levels <- c("CON", "SP2", "SP3", "SP4", "Pooled")
+col_x      <- c(CON = 1, SP2 = 2.6, SP3 = 3.6, SP4 = 4.6, Pooled = 6.2)
+
+tier_rows <- tibble::tribble(
+  ~row, ~tier,          ~CON,  ~SP2,  ~SP3,  ~SP4,  ~Pooled, ~criterion,
+  5,    "Core",         "ns",  "sig", "sig", "sig", "sig",   "q < 0.10 in all three spawns",
+  4,    "Core",         "ns",  "sig", "ns",  "sig", "sig",   "q < 0.05 in at least two spawns",
+  3,    "Convergent",   "ns",  "ns",  "sig", "ns",  "sig",   "q < 0.01 in one spawn and q < 0.0001 when spawns are pooled",
+  2,    "Private",      "ns",  "na",  "sig", "na",  "na",    "strong outlier in one spawn; testable in only one or two spawns",
+  1,    "Removed",      "sig", "sig", "sig", "ns",  "sig",   "also shifted in the control (q < 0.10); excluded from all treatment sets"
+)
+
+cells <- tier_rows %>%
+  tidyr::pivot_longer(all_of(col_levels), names_to = "col", values_to = "state") %>%
+  dplyr::mutate(x = col_x[col], col = factor(col, col_levels))
+
+labels_right <- tier_rows %>%
+  dplyr::mutate(x = max(col_x) + 1.0,
+                shape = ifelse(tier == "Removed", NA, tier_shape[tier]),
+                fill  = ifelse(tier == "Removed", strike_col, tier_cols[tier]))
+tier_pts <- dplyr::filter(labels_right, tier != "Removed")
+s <- 1.15
+fig1_tiers <- ggplot() +
+  # cells
+  geom_tile(data = dplyr::filter(cells, state != "na"),
+            aes(x, row, fill = state), width = 0.86, height = 0.78, colour = "black", linewidth = 0.4) +
+  geom_tile(data = dplyr::filter(cells, state == "na"),
+            aes(x, row), width = 0.86, height = 0.78, fill = "white", colour = "grey55",
+            linewidth = 0.5, linetype = "22") +
+  scale_fill_manual(values = sig_fill, guide = "none") +
+  # control-filtered row: strike through
+  annotate("segment", x = min(col_x) - 0.5, xend = max(col_x) + 0.5, y = 1, yend = 1,
+           colour = strike_col, linewidth = 1.6) +
+  # column group headers
+  annotate("segment", x = c(0.55, 2.15, 5.75), xend = c(1.45, 5.05, 6.65), y = 5.95, yend = 5.95,
+           colour = "grey30", linewidth = 0.6) +
+  annotate("text", x = c(1, 3.6, 6.2), y = 6.25, size = 4.6*s, fontface = "bold", colour = "grey20",
+           label = c("Control", "Treatment, by spawn", "Pooled")) +
+  annotate("text", x = col_x, y = 5.5, size = 4.2*s, colour = "grey20",
+           label = c("any spawn", "SP2", "SP3", "SP4", "SP2 + SP3 + SP4"), vjust = 0) +
+  # tier symbols (literal shape/fill so the cell fill scale is untouched)
+  geom_point(data = tier_pts, aes(x, row), shape = tier_pts$shape, fill = tier_pts$fill,
+             size = 6*s, colour = "black", stroke = 0.7) +
+  geom_text(data = labels_right, aes(x + 0.45, row + 0.16, label = tier),
+            hjust = 0, size = 5 *s, fontface = "bold",
+            colour = ifelse(labels_right$tier == "Removed", strike_col, "black")) +
+  geom_text(data = labels_right, aes(x + 0.45, row - 0.2, label = criterion),
+            hjust = 0, size = 3.6*s, colour = "grey30") +
+  # legend (bottom)
+  annotate("tile", x = c(0.9, 5.0, 8.3), y = -0.15, width = 0.42, height = 0.4,
+           fill = c(sig_fill["sig"], sig_fill["ns"], "white"),
+           colour = c("black", "black", "grey55"), linetype = c("solid", "solid", "22"), linewidth = 0.45) +
+  annotate("text", x = c(0.9, 5.0, 8.3) + 0.32, y = -0.15, hjust = 0, size = 3.8* s, colour = "grey20",
+           label = c("significant allele-frequency change", "tested, not significant", "not testable in this spawn")) +
+  annotate("text", x = 0.15, y = 3, label = "example loci", angle = 90, size = 4*s, colour = "grey30") +
+  coord_cartesian(xlim = c(-0.1, 14.6), ylim = c(-0.55, 6.55), expand = FALSE, clip = "off") +
+  theme_void(base_size = 14) +
+  #ggtitle("Significant loci tier inference conecptual diagram") +
+  theme(plot.margin = margin(4, 8, 4, 8))
+
+fig1_tiers
+```
+
+![](Final_reproducible_analysis_files/figure-gfm/fig1-tiers-1.png)<!-- -->
+
+## Fig 1. Assemble: design schematic (A), tier schematic (B), survival (C)
 
 ``` r
 fig1_top_png <- png::readPNG("../data/Fig1Panel1_top.png")
 fig1_top <- patchwork::wrap_elements(full = grid::rasterGrob(fig1_top_png, interpolate = TRUE))
 
-fig1 <- fig1_top / fig1b +
-  plot_layout(heights = c(1, 0.6)) 
-  # plot_annotation(tag_levels = "A")
+fig1 <- fig1_top / fig1_tiers / fig1b +
+  plot_layout(heights = c(1, 0.85, 0.7)) +
+  plot_annotation(tag_levels = "A")
 fig1
 ```
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig1-assemble-1.png)<!-- -->
 
 ``` r
-save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 9)
+save_case(fig1, "Fig1_experiment_survival.png", width = 14, height = 14)
 ```
 
 ## Larval development and size
