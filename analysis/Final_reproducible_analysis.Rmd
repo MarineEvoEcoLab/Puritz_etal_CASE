@@ -2182,14 +2182,18 @@ if(!is.null(GO_Conv_SE))   write.csv(GO_Conv_SE,   "./GO/Conv_SE_GO_en_sig_gene.
 if(!is.null(GO_Conv_CASE)) write.csv(GO_Conv_CASE, "./GO/Conv_CASE_GO_en_sig_gene.csv", row.names = FALSE)
 ```
 
-## Data-driven GO clusters (mechanism themes for Fig 4D + Table S)
+## Data-driven GO clusters (Fig 4D, Table 1, Table S7)
 
 Groups the enriched GO terms (pooled across CA/SE/CASE) by overlap of the
 candidate genes annotated to them (Jaccard >= 0.10), finds communities with
 `igraph` greedy modularity, and tags an interpretive set of stress-relevant
 clusters. The clustering is data-driven and reproducible; the stress
 selection/naming is a curated overlay anchored on stable GO IDs. Builds
-`go_clusters_stress` (Fig 4D) and `go_clusters_full` (Table S).
+`go_clusters_stress` (Fig 4D, Table 1) and `go_clusters_full` (term-level source
+for Table S7). Clusters carry a sequential `display_id` (rank by minimum Fisher p
+across ALL retained clusters) that is used as the cluster ID in Table 1, Table S7,
+and the SI summary table, so IDs match across the three; `cluster_id` is the raw
+igraph community label and is kept only for traceability.
 
 ```{r go-cluster-themes, message=FALSE}
 go_list <- Filter(Negate(is.null), list(GO_CA, GO_SE, GO_CASE))
@@ -2248,11 +2252,12 @@ cl_sum[, stress  := !is.na(category)]
 clG <- merge(clG, cl_sum[, .(cluster_id, cluster, stress, minF)], by = "cluster_id")
 
 cl_sum[, case_only := (CA == 0L & SE == 0L)]
-clG <- merge(clG, cl_sum[, .(cluster_id, case_only)], by = "cluster_id")
-go_clusters_full   <- clG[order(minF, Fisher),
-                          .(cluster_id, cluster, stress, case_only, GO, Term, Fisher, CA, SE, CASE)]
-go_clusters_stress <- cl_sum[stress == TRUE][order(minF),
-                          .(cluster_id, cluster, CA, SE, CASE, n, minF, case_only)]
+cl_sum[, display_id := frank(minF, ties.method = "first")]   # sequential ID, all clusters
+clG <- merge(clG, cl_sum[, .(cluster_id, case_only, display_id)], by = "cluster_id")
+go_clusters_full   <- clG[order(display_id, Fisher),
+                          .(display_id, cluster_id, cluster, stress, case_only, GO, Term, Fisher, CA, SE, CASE)]
+go_clusters_stress <- cl_sum[stress == TRUE][order(display_id),
+                          .(display_id, cluster_id, cluster, CA, SE, CASE, n, minF, case_only)]
 
 # all clusters x treatment and x tier (for Fig S12)
 go_clusters_trt <- clG[, .(CA = sum(CA), SE = sum(SE), CASE = sum(CASE),
@@ -2263,8 +2268,9 @@ tier_priv <- unique(GO_Priv_ALL$GeneOntologyIDs)
 go_clusters_tier <- clG[, .(Core = sum(GO %in% tier_core), Convergent = sum(GO %in% tier_conv),
                             Private = sum(GO %in% tier_priv), minF = minF[1L], stress = stress[1L]), by = cluster]
 
-fwrite(go_clusters_full,   file.path(tab_dir, "TableS_GO_clusters_full.csv"))
-fwrite(go_clusters_stress, file.path(tab_dir, "TableS_GO_clusters_stress.csv"))
+# term-level intermediate (not a numbered supplementary table; Table 1 and Table S7
+# are derived from the same clG below)
+fwrite(go_clusters_full, "results/GO_cluster_terms_all.csv")
 cat("data-driven clusters:", uniqueN(clG$cluster_id),
     "| stress-highlighted:", nrow(go_clusters_stress), "\n")
 ```
@@ -2280,9 +2286,10 @@ derived from `clG`, so they cannot drift from the clustering above.
 ## ---- Table 1: stress-relevant clusters, cluster level -----------------------
 rep_terms <- clG[order(Fisher), .(representative_terms = paste(head(Term, 3), collapse = "; ")),
                  by = cluster_id]
-table1 <- merge(go_clusters_stress, rep_terms, by = "cluster_id")[order(minF)]
-setnames(table1, c("n", "case_only"), c("n_terms", "case_only_cluster"))
+table1 <- merge(go_clusters_stress, rep_terms, by = "cluster_id")[order(display_id)]
+setnames(table1, c("display_id", "n", "case_only"), c("ID", "n_terms", "case_only_cluster"))
 table1[, case_only_cluster := fifelse(case_only_cluster, "yes", "no")]
+table1[, cluster_id := NULL]
 fwrite(table1, file.path(tab_dir, "Table1_GO_clusters.csv"))
 
 ## ---- Table S7: member genes for every cluster ------------------------------
@@ -2304,21 +2311,30 @@ go_gene_flags[, `:=`(enriched_in_CA   = fifelse(CA   > 0L, "yes", "no"),
                      enriched_in_CASE = fifelse(CASE > 0L, "yes", "no"))]
 
 tableS7 <- merge(
-  clG[, .(cluster_id, cluster, stress, case_only, GO, Term, Fisher)],
+  clG[, .(display_id, cluster, stress, case_only, GO, Term, Fisher)],
   go_gene_flags[, .(GO, gene_LOC, enriched_in_CA, enriched_in_SE, enriched_in_CASE)],
   by = "GO", allow.cartesian = TRUE)
 tableS7[, `:=`(stress_relevant   = fifelse(stress, "yes", "no"),
                case_only_cluster = fifelse(case_only, "yes", "no"))]
-tableS7 <- tableS7[order(cluster_id, Fisher, gene_LOC),
-                   .(cluster_id, cluster, stress_relevant, case_only_cluster,
+tableS7 <- tableS7[order(display_id, Fisher, gene_LOC),
+                   .(ID = display_id, cluster, stress_relevant, case_only_cluster,
                      GO, Term, Fisher, gene_LOC,
                      enriched_in_CA, enriched_in_SE, enriched_in_CASE)]
 fwrite(tableS7, file.path(tab_dir, "TableS7_GO_cluster_member_genes.csv"))
 
+## ---- Table S7 summary: one row per cluster (printed in the SI above the CSV pointer)
+tableS7_summary <- tableS7[, .(`Stress-relevant` = stress_relevant[1L],
+                               `CASE-only`       = case_only_cluster[1L],
+                               Terms             = uniqueN(GO),
+                               `Member genes`    = uniqueN(gene_LOC)),
+                           by = .(ID, Cluster = cluster)][order(ID)]
+fwrite(tableS7_summary, file.path(tab_dir, "TableS7_cluster_summary.csv"))
+
 cat("Table 1 rows:", nrow(table1),
+    "| Table S7 clusters:", nrow(tableS7_summary),
     "| Table S7 rows:", nrow(tableS7),
     "| unique genes:", uniqueN(tableS7$gene_LOC),
-    "| clusters covered:", uniqueN(tableS7$cluster_id), "\n")
+    "| clusters covered:", uniqueN(tableS7$ID), "\n")
 cat("CASE-only clusters:",
     paste(table1[case_only_cluster == "yes", cluster], collapse = "; "), "\n")
 ```
@@ -4094,11 +4110,13 @@ if (nrow(go_all)) {
 }
 ```
 
-## Table 1: All data-driven GO clusters (main text)
+## Table 1 (main text) and Table S7 cluster summary (SI)
 
 ```{r table1-go-clusters}
-knitr::kable(go_clusters_full,
-             caption = "Table 1. Data-driven GO clusters (all terms; stress flag and per-stressor enrichment). Stress-relevant clusters are shown in Fig 4D.")
+knitr::kable(table1,
+             caption = "Table 1. Stress-relevant data-driven GO clusters (cluster level; enriched-term counts per stressor, minimum Fisher p, representative terms). These are the clusters shown in Fig 4D. IDs match Table S7.")
+knitr::kable(tableS7_summary,
+             caption = "Table S7 (summary). All retained data-driven GO clusters, one row per cluster, with term and member-gene counts. Member genes per cluster x term are in results/tables/TableS7_GO_cluster_member_genes.csv.")
 ```
 
 ```{r session-info}
