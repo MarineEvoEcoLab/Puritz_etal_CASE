@@ -6515,6 +6515,8 @@ ve_r  <- pr_r$sdev^2 / sum(pr_r$sdev^2) * 100
 dr    <- as.data.frame(pr_r$x[, 1:2]); names(dr) <- c("PC1","PC2")
 dr$Treatment <- factor(sub("_.*", "", rownames(afr_t)), levels = c(treat_levels, "IS"))
 dr$Spawn     <- factor(sub(".*_", "", rownames(afr_t)), levels = spawn_levels)
+fwrite(cbind(sample = rownames(afr_t), dr, PC1_var = ve_r[1], PC2_var = ve_r[2]),
+       file.path(tab_dir, "FigS3_genomewide_PCA_scores.csv"))   # talk-figure export
 s2_lab <- labs(x = sprintf("PC1 (%.1f%%)", ve_r[1]), y = sprintf("PC2 (%.1f%%)", ve_r[2]))
 p_s2_treat <- ggplot(dr, aes(PC1, PC2, fill = Treatment)) +
   geom_point(size = 4, shape = 21, colour = "black", alpha = 0.8) +
