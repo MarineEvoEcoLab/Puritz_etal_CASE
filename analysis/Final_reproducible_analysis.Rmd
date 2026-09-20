@@ -2678,6 +2678,7 @@ fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   ex[, glab  := factor(disp_gene(gene), levels = rev(unique(disp_top)))]
   ex[, block := factor(block, levels = spawn_levels)]
   ex[, gnum  := as.integer(glab)]
+  fwrite(ex[, .(gene, glab = as.character(glab), block, rel)], file.path(tab_dir, "Fig2_turnover_points.csv"))  # talk-figure export
   # three horizontal spawn tracks per gene (B10/SP2 top, B11/SP3 mid, B12/SP4 bottom) to declutter
   off <- c(B10 = 0.26, B11 = 0, B12 = -0.26)
   ex[, y2 := gnum + off[as.character(block)]]
@@ -3361,6 +3362,9 @@ gene_d <- c(
   ALL     = cum[["ALL"]])
 cat("Venn SNP regions (CA,SE,CASE,CA&SE,CA&CASE,SE&CASE,all):\n"); print(snp_d)
 cat("Venn gene regions:\n"); print(gene_d)
+# exported for the talk-figure Rmd (CASE_talk_figures.Rmd)
+fwrite(data.table(region = names(snp_d), snps = as.integer(snp_d), genes = as.integer(gene_d[names(snp_d)])),
+       file.path(tab_dir, "Fig4_venn_regions.csv"))
 
 circ <- function(cx, cy, r, lab, n = 160) {
   t <- seq(0, 2*pi, length.out = n); data.frame(x = cx + r*cos(t), y = cy + r*sin(t), grp = lab)
@@ -3703,6 +3707,11 @@ tier_of <- rbindlist(list(data.table(SNP = core.sig$SNP, tier = "Core"),
                           data.table(SNP = private.sig$SNP, tier = "Private")))[!duplicated(SNP)]
 master <- merge(master, tier_of, by = "SNP", all.x = TRUE)
 master[is.na(tier), tier := "Background"][, tier := factor(tier, levels = tier_levels)]
+# exported for the talk-figure Rmd: all tier outliers + a 20k background sample
+set.seed(1)
+fwrite(rbind(master[tier != "Background"],
+             master[tier == "Background"][sample(.N, min(.N, 20000L))])[, .(SNP, treatment, block, tier, MAF0, abs_dAF)],
+       file.path(tab_dir, "Fig5_architecture_perlocus.csv"))
 ```
 
 ```{r fig5-he-tier, fig.width=11, fig.height=4}
