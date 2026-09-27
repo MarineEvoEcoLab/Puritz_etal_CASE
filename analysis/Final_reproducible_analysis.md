@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-09-20
+2026-09-26
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -22,6 +22,8 @@ Jonathan Puritz
     - [Create Unified Sync file](#create-unified-sync-file)
     - [Add coverage stats to sync file and filter by minimum
       coverage](#add-coverage-stats-to-sync-file-and-filter-by-minimum-coverage)
+    - [Mean coverage per pool (Table
+      S8)](#mean-coverage-per-pool-table-s8)
   - [Background allele frequencies (10,000 random
     loci)](#background-allele-frequencies-10000-random-loci)
     - [Venn Diagram for called loci](#venn-diagram-for-called-loci)
@@ -848,6 +850,47 @@ cut -f1,2 CASE.dp20.Block1*.cov.sync | sort | uniq -c | mawk '$1 > 2' | mawk '{p
 
 cat <(echo "SNP") <(cat Block1*.pos | cut -f1,2 | sort | uniq -c | mawk '$1 <2' | mawk '{print $2"_"$3}') > singleton.loci
 ```
+
+### Mean coverage per pool (Table S8)
+
+Per-replicate depth at the loci that enter each spawn’s CMH test. Each
+sync column is `A:T:C:G:N:del` for one pool, so the column sum is that
+pool’s depth at the site and the mean down the column is its coverage.
+Computed on the block-level, coverage-filtered sync files (the same loci
+the tests see), not the raw VCF.
+
+``` bash
+source activate CASE
+for b in 10 11 12; do
+  mawk -v blk=B$b 'NR==1 { for (i=4; i<=NF; i++) if ($i !~ /_COV$/) name[i]=$i; next }
+       { for (i in name) { split($i, a, ":"); d=0; for (j in a) d+=a[j]; sum[i]+=d; n[i]++ } }
+       END { for (i in name) printf "%s\t%s\t%.1f\t%d\n", blk, name[i], sum[i]/n[i], n[i] }' \
+    CASE.dp20.Block$b.cov.sync
+done | sort -k1,1 -k2,2 > coverage_per_pool.tsv
+```
+
+``` r
+if (file.exists("coverage_per_pool.tsv")) {
+  cov_pool <- fread("coverage_per_pool.tsv", col.names = c("Block", "Sample", "Mean_coverage", "Loci"))
+  # sample names are TREATMENT_JnnBnn (IS pools carry the spawn only); recover treatment and spawn
+  cov_pool[, Treatment := sub("_.*", "", Sample)]
+  cov_pool[, Spawn := spawn_lab(sub(".*(B1[012])$", "\\1", Sample))]
+  cov_pool[, Treatment := factor(Treatment, levels = c("IS", treat_levels))]
+  cov_pool <- cov_pool[order(Spawn, Treatment, Sample)]
+  fwrite(cov_pool[, .(Spawn, Treatment, Sample, Mean_coverage, Loci)],
+         file.path(tab_dir, "TableS8_coverage_per_pool.csv"))
+  cov_sum <- cov_pool[, .(Pools = .N, Mean = round(mean(Mean_coverage), 1),
+                          SE = round(sd(Mean_coverage) / sqrt(.N), 2), Min = round(min(Mean_coverage), 1),
+                          Max = round(max(Mean_coverage), 1)), by = .(Spawn, Treatment)]
+  fwrite(cov_sum, file.path(tab_dir, "TableS8_coverage_summary.csv"))
+  knitr::kable(cov_sum, caption = "Mean per-pool coverage at CMH-tested loci, by spawn and treatment.")
+  cat("Grand mean per-pool coverage:", round(mean(cov_pool$Mean_coverage), 1),
+      "+/- SE", round(sd(cov_pool$Mean_coverage) / sqrt(nrow(cov_pool)), 2),
+      "| range:", round(min(cov_pool$Mean_coverage), 1), "-", round(max(cov_pool$Mean_coverage), 1), "\n")
+} else message("coverage_per_pool.tsv not found; run the bash chunk above first")
+```
+
+    ## Grand mean per-pool coverage: 59.8 +/- SE 1.42 | range: 33.7 - 88.3
 
 ## Background allele frequencies (10,000 random loci)
 
@@ -6694,19 +6737,19 @@ pca.priv   <- run_tier_pca("Priv.outlier.pca.sync",    "Private Loci",        "P
 print(pca.core$p_treat)
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-59-1.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-60-1.png)<!-- -->
 
 ``` r
 print(pca.conv$p_treat)
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-59-2.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-60-2.png)<!-- -->
 
 ``` r
 print(pca.priv$p_treat)
 ```
 
-![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-59-3.png)<!-- -->
+![](Final_reproducible_analysis_files/figure-gfm/unnamed-chunk-60-3.png)<!-- -->
 
 ``` r
 figS4 <- (pca.core$p_treat + pca.conv$p_treat + pca.priv$p_treat) +

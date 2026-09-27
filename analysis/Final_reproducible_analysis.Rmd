@@ -654,7 +654,7 @@ Per-replicate depth at the loci that enter each spawn's CMH test. Each sync colu
 down the column is its coverage. Computed on the block-level, coverage-filtered sync files
 (the same loci the tests see), not the raw VCF.
 
-```{bash, eval=FALSE}
+```{bash, eval=TRUE}
 source activate CASE
 for b in 10 11 12; do
   mawk -v blk=B$b 'NR==1 { for (i=4; i<=NF; i++) if ($i !~ /_COV$/) name[i]=$i; next }
