@@ -675,11 +675,12 @@ if (file.exists("coverage_per_pool.tsv")) {
   fwrite(cov_pool[, .(Spawn, Treatment, Sample, Mean_coverage, Loci)],
          file.path(tab_dir, "TableS8_coverage_per_pool.csv"))
   cov_sum <- cov_pool[, .(Pools = .N, Mean = round(mean(Mean_coverage), 1),
-                          SD = round(sd(Mean_coverage), 1), Min = round(min(Mean_coverage), 1),
+                          SE = round(sd(Mean_coverage) / sqrt(.N), 2), Min = round(min(Mean_coverage), 1),
                           Max = round(max(Mean_coverage), 1)), by = .(Spawn, Treatment)]
   fwrite(cov_sum, file.path(tab_dir, "TableS8_coverage_summary.csv"))
   knitr::kable(cov_sum, caption = "Mean per-pool coverage at CMH-tested loci, by spawn and treatment.")
   cat("Grand mean per-pool coverage:", round(mean(cov_pool$Mean_coverage), 1),
+      "+/- SE", round(sd(cov_pool$Mean_coverage) / sqrt(nrow(cov_pool)), 2),
       "| range:", round(min(cov_pool$Mean_coverage), 1), "-", round(max(cov_pool$Mean_coverage), 1), "\n")
 } else message("coverage_per_pool.tsv not found; run the bash chunk above first")
 ```
