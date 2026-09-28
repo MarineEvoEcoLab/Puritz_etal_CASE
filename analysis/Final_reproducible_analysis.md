@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-09-26
+2026-09-28
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -6450,7 +6450,7 @@ coup[, Treatment := factor(Treatment, levels = c("CA","SE","CASE"))]
 setorder(coup, excess_mort)
 fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
   geom_line(linetype = "dashed", colour = "grey50", linewidth = 0.6) +
-  geom_point(aes(fill = Treatment), shape = 21, size = 8, colour = "black", alpha = 0.9) +
+  geom_point(aes(fill = Treatment), shape = 25, size = 8, colour = "black", alpha = 0.9) +
   geom_text(aes(label = Treatment), vjust = -1.6, size = 4.5) +
   scale_fill_manual(values = treat_cols, guide = "none") +
   scale_x_continuous(expand = expansion(mult = c(0.12, 0.12))) +
