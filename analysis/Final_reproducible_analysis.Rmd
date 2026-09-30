@@ -4350,11 +4350,17 @@ figS16
 
 ```{r supp-tables}
 # Table S3 - locus counts by tier x treatment
-tier_count <- function(df, tier) data.frame(Tier = tier,
-  CA   = sum(asL(df$Sig.CA),   na.rm = TRUE),
-  SE   = sum(asL(df$Sig.SE),   na.rm = TRUE),
-  CASE = sum(asL(df$Sig.CASE), na.rm = TRUE),
-  Total = nrow(df))
+# tier objects hold one row per SNP x spawn (and per treatment attribution), so count unique SNPs;
+# a locus significant for more than one treatment counts once in Total
+tier_count <- function(df, tier) {
+  d <- as.data.table(df)
+  data.frame(Tier = tier,
+    CA   = uniqueN(d[asL(Sig.CA)   %in% TRUE, SNP]),
+    SE   = uniqueN(d[asL(Sig.SE)   %in% TRUE, SNP]),
+    CASE = uniqueN(d[asL(Sig.CASE) %in% TRUE, SNP]),
+    Total = uniqueN(d$SNP),
+    Rows  = nrow(d))
+}
 tabS3 <- rbind(tier_count(core.sig, "Core"),
                tier_count(convergent.sig, "Convergent"),
                tier_count(private.sig, "Private"))
