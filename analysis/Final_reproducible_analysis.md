@@ -8567,11 +8567,17 @@ figS16
 
 ``` r
 # Table S3 - locus counts by tier x treatment
-tier_count <- function(df, tier) data.frame(Tier = tier,
-  CA   = sum(asL(df$Sig.CA),   na.rm = TRUE),
-  SE   = sum(asL(df$Sig.SE),   na.rm = TRUE),
-  CASE = sum(asL(df$Sig.CASE), na.rm = TRUE),
-  Total = nrow(df))
+# tier objects hold one row per SNP x spawn (and per treatment attribution), so count unique SNPs;
+# a locus significant for more than one treatment counts once in Total
+tier_count <- function(df, tier) {
+  d <- as.data.table(df)
+  data.frame(Tier = tier,
+    CA   = uniqueN(d[asL(Sig.CA)   %in% TRUE, SNP]),
+    SE   = uniqueN(d[asL(Sig.SE)   %in% TRUE, SNP]),
+    CASE = uniqueN(d[asL(Sig.CASE) %in% TRUE, SNP]),
+    Total = uniqueN(d$SNP),
+    Rows  = nrow(d))
+}
 tabS3 <- rbind(tier_count(core.sig, "Core"),
                tier_count(convergent.sig, "Convergent"),
                tier_count(private.sig, "Private"))
@@ -8579,10 +8585,10 @@ write.csv(tabS3, file.path(tab_dir, "TableS3_tier_locus_counts.csv"), row.names 
 print(tabS3)
 ```
 
-    ##         Tier  CA   SE CASE Total
-    ## 1       Core 662 1661 2989  5312
-    ## 2 Convergent  62  166  812  1040
-    ## 3    Private 233  249  639  1121
+    ##         Tier  CA  SE CASE Total Rows
+    ## 1       Core 326 822 1479  2436 5312
+    ## 2 Convergent  31  83  406   493 1040
+    ## 3    Private 178 175  370   543 1121
 
 ``` r
 # Table S4 - full significant-loci table (tier + treatment flags)
