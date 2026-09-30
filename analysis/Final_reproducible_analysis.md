@@ -79,6 +79,7 @@ Jonathan Puritz
     tests)](#22b-gene-and-pathway-recurrence-treatment-identity-redundancy-tests)
   - [2.3 Within-gene allele turnover (Fig 2F): same genes, different
     SNPs](#23-within-gene-allele-turnover-fig-2f-same-genes-different-snps)
+  - [2.4 Assemble Fig 2 (patchwork)](#24-assemble-fig-2-patchwork)
   - [Fig S3. Genome-wide PCA (10,000 random
     loci)](#fig-s3-genome-wide-pca-10000-random-loci)
   - [Fig S4. Tier-specific PCA](#fig-s4-tier-specific-pca)
@@ -6627,13 +6628,16 @@ pe[, metric  := factor(metric, levels = c("n3", "n2"), labels = c("All 3 spawns"
 pe[, variant := factor(variant, levels = c("pipeline", "mirror"),
                        labels = c("Control filter on treatments", "Reciprocal control filter"))]
 pe[, set := factor(set, levels = c("CA", "SE", "CASE", "CON"))]
-fig2e <- ggplot(pe, aes(metric, fold, colour = set)) +
+fig2e <- ggplot(pe, aes(metric, fold, group = set)) +
   geom_hline(yintercept = 1, linetype = "dashed", colour = "grey60") +
-  geom_point(position = position_dodge(width = 0.6), size = 3) +
-  geom_text(aes(label = obs), position = position_dodge(width = 0.6), vjust = -1.1,
+  geom_point(aes(fill = set), position = position_dodge(width = 0.6),
+             shape = 25, size = 3.4, colour = "black") +
+  geom_text(aes(label = obs, colour = set), position = position_dodge(width = 0.6), vjust = -1.3,
             size = 2.6, show.legend = FALSE) +
   facet_wrap(~ variant) +
-  scale_colour_manual(values = e_cols, name = "Outlier set") +
+  scale_fill_manual(values = e_cols, name = "Outlier set") +
+  scale_colour_manual(values = e_cols, guide = "none") +
+  guides(fill = "none") +   # same colours as the Treatment legend collected from the PCAs
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
   labs(x = NULL, y = "Observed / random expectation",
        title = "Cross-spawn overlap vs a control built with the same tiers") +
@@ -6989,7 +6993,8 @@ turnover
 ```
 
 ![](Final_reproducible_analysis_files/figure-gfm/fig2-turnover-1.png)<!-- -->
-\## 2.4 Assemble Fig 2 (patchwork)
+
+## 2.4 Assemble Fig 2 (patchwork)
 
 ``` r
 design2 <- "
