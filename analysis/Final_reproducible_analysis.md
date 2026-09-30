@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-09-28
+2026-09-30
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -72,10 +72,13 @@ Jonathan Puritz
   - [Figure parameters and guard](#figure-parameters-and-guard)
   - [2.1 PCAs: ΔAF-from-initial (all blocks) + three per-block outlier
     PCAs](#21-pcas-δaf-from-initial-all-blocks--three-per-block-outlier-pcas)
-  - [2.2 Reproducibility bars (3b) + lethality coupling
-    (3c)](#22-reproducibility-bars-3b--lethality-coupling-3c)
-  - [2.3 Within-gene allele turnover (3E-A): same genes, different
-    SNPs](#23-within-gene-allele-turnover-3e-a-same-genes-different-snps)
+  - [2.2 Cross-spawn reproducibility against a control set built with
+    the same tiers (Fig
+    2E)](#22-cross-spawn-reproducibility-against-a-control-set-built-with-the-same-tiers-fig-2e)
+  - [2.2b Gene and pathway recurrence, treatment identity (redundancy
+    tests)](#22b-gene-and-pathway-recurrence-treatment-identity-redundancy-tests)
+  - [2.3 Within-gene allele turnover (Fig 2F): same genes, different
+    SNPs](#23-within-gene-allele-turnover-fig-2f-same-genes-different-snps)
   - [Fig S3. Genome-wide PCA (10,000 random
     loci)](#fig-s3-genome-wide-pca-10000-random-loci)
   - [Fig S4. Tier-specific PCA](#fig-s4-tier-specific-pca)
@@ -6316,152 +6319,617 @@ for (b in blocks) {
     ##   B11: 2044 of 3472 outlier loci retained by .pos filter
     ##   B12: 2979 of 3472 outlier loci retained by .pos filter
 
-## 2.2 Reproducibility bars (3b) + lethality coupling (3c)
+## 2.2 Cross-spawn reproducibility against a control set built with the same tiers (Fig 2E)
+
+The original reproducibility test compared tier outliers (Core loci are
+shared by definition) with random subsets of per-spawn CON-significant
+SNPs, so the baseline never passed the \>= 2-spawn rule and the 116-403x
+enrichment was largely built in. Here the same tier rules are applied to
+the control q-values, and each set is scored against random draws of the
+same per-spawn size from that spawn’s own eligible loci (preserving the
+spawn-specific EecSeq probe sets). Three filter setups: `pipeline`
+(treatments CON-filtered as in the paper; CON unfiltered), `unfiltered`
+(no cross-filter on either side), and `mirror` (CON filtered
+reciprocally against treatment outliers). Treatment vs control rates are
+compared with a conditional binomial test on observed/expected counts.
 
 ``` r
-# True-outlier universe per treatment: SNPs flagged Sig.<trt> TRUE in any tier
-# (Core/Convergent/Private) - same definition feeding the Venn/Sig.loci
-# files and the turnover panel's true_case set (cf. lines 372-375).
-true_outliers <- function(trt) {
-  sigcol <- paste0("Sig.", trt)
-  unique(rbindlist(list(
-    data.table(SNP = core.sig$SNP,       s = asL(core.sig[[sigcol]])),
-    data.table(SNP = convergent.sig$SNP,  s = asL(convergent.sig[[sigcol]])),
-    data.table(SNP = private.sig$SNP, s = asL(private.sig[[sigcol]]))
-  ))[s == TRUE, SNP])
-}
-# bed-based CON-confound exclusion (same sets used for the "CON Filtered" tier
-# in the Manhattan panels, lines 493-498)
-con_excl <- unique(c(all_con$SNP, con_filter$SNP, singleton$SNP))
-block_out_snps <- function(b, trt) {
-  pv <- pv_list[[b]]
-  if (trt == "CON") return(pv[get(qcol["CON"]) < alpha, SNP])
-  to <- true_outliers(trt)
-  s  <- pv[SNP %in% to & get(qcol[trt]) < alpha & QCON > alpha2, SNP]
-  setdiff(s, con_excl)
-}
-shared_set <- function(sets) {
-  a <- unique(sets[[1]]); b <- unique(sets[[2]]); c <- unique(sets[[3]])
-  unique(c(intersect(a,b), intersect(a,c), intersect(b,c)))
-}
-shared_counts <- function(sets) length(shared_set(sets))
+chk_con <- local({
+  set.seed(42)
+  P_null <- 500
+  trts <- c("CA", "SE", "CASE"); sets <- c(trts, "CON")
+  variants <- c("pipeline", "unfiltered", "mirror")
+  qc <- c(CA = "QCA", SE = "QSE", CASE = "QCASE", CON = "QCON")
+  pc <- c(CA = "PCA", SE = "PSE", CASE = "PCASE", CON = "PCON")
+  aA  <- c(B10 = 0.10,  B11 = 0.10, B12 = 0.10)
+  aB  <- c(B10 = 0.05,  B11 = 0.10, B12 = 0.05)
+  aC  <- c(B10 = 0.001, B11 = 0.10, B12 = 0.01)
+  aAB <- 0.0001
+  f2  <- 0.10
+  dropna <- function(x) x[!is.na(x)]
+  tru    <- function(x) x %in% TRUE
 
-drop_na  <- function(x) x[!is.na(x)]
-gmap     <- function(s) unname(gene_of[s])
-
-# (a) SNP-level shareable universe: shared_counts() only counts a SNP as reproduced if it's in >=2 of
-# 3 blocks, so restrict the random/CON nulls to that set (else block-private SNPs inflate enrichment)
-all_snp        <- lapply(blocks, function(b) pv_list[[b]]$SNP)
-shareable_snps <- shared_set(all_snp)
-
-univ_snp <- lapply(blocks, function(b) intersect(pv_list[[b]]$SNP, shareable_snps))
-con_snp  <- lapply(blocks, function(b) intersect(pv_list[[b]][QCON < alpha, SNP], shareable_snps))
-
-# (b) Gene-level shareability: a gene counts only if reachable (via any SNP) from >=2 of 3 blocks.
-# Mark non-shareable genes NA so drop_na() drops them from the gene-level draws.
-all_gene        <- lapply(all_snp, function(s) unique(drop_na(gmap(s))))
-shareable_genes <- shared_set(all_gene)
-
-mask_unshareable_genes <- function(s) {
-  g <- gmap(s)
-  g[!(g %in% shareable_genes)] <- NA
-  g
-}
-univ_gene <- lapply(univ_snp, mask_unshareable_genes)
-con_gene  <- lapply(con_snp,  mask_unshareable_genes)
-
-# sanity check: gene-level fold-enrichment < locus-level because gene_of collapses many SNPs onto
-# few genes, so random SNP sets overlap more often at the gene level by chance
-cat("Shareable SNP universe size:", length(unique(unlist(univ_snp))),
-    " | Shareable gene universe size:", length(unique(unlist(drop_na(unlist(univ_gene))))), "\n")
-```
-
-    ## Shareable SNP universe size: 338070  | Shareable gene universe size: 8997
-
-``` r
-tx_test <- function(trt) {
-  obs_snp <- lapply(blocks, block_out_snps, trt = trt)
-  n_b <- vapply(obs_snp, length, integer(1))
-  o_loc <- shared_counts(obs_snp)
-  o_gen <- shared_counts(lapply(obs_snp, function(s) drop_na(gmap(s))))
-  rl <- cl <- rg <- cg <- numeric(P)
-  for (p in seq_len(P)) {
-    ri <- lapply(seq_along(blocks), function(i) sample.int(length(univ_snp[[i]]), min(n_b[i], length(univ_snp[[i]]))))
-    ci <- lapply(seq_along(blocks), function(i){ np <- length(con_snp[[i]]); sample.int(np, min(n_b[i], np), replace = n_b[i] > np) })
-    rl[p] <- shared_counts(lapply(seq_along(blocks), function(i) univ_snp[[i]][ri[[i]]]))
-    cl[p] <- shared_counts(lapply(seq_along(blocks), function(i) con_snp[[i]][ci[[i]]]))
-    rg[p] <- shared_counts(lapply(seq_along(blocks), function(i) drop_na(univ_gene[[i]][ri[[i]]])))
-    cg[p] <- shared_counts(lapply(seq_along(blocks), function(i) drop_na(con_gene[[i]][ci[[i]]])))
+  prep <- function(d) {
+    d <- as.data.table(d)
+    if (!"SNP" %in% names(d)) d[, SNP := paste0(CHROM, "_", BP)]
+    for (q in intersect(c(qc, pc), names(d))) set(d, j = q, value = as.numeric(d[[q]]))
+    d[, mT := pmin(QCA, QSE, QCASE, na.rm = TRUE)]
+    d
   }
-  mk <- function(lvl, obs, rnd, conb) data.table(treatment = trt, level = lvl, obs_2of3 = obs,
-    random_mean = mean(rnd), enrich_vs_random = obs/mean(rnd), p_random = (1 + sum(rnd >= obs))/(P + 1),
-    con_mean = mean(conb), enrich_vs_CON = obs/mean(conb), p_CON = (1 + sum(conb >= obs))/(P + 1))
-  out <- mk("locus", o_loc, rl, cl)
-  out <- rbind(out, mk("gene", o_gen, rg, cg))
-  out
+  pv <- setNames(lapply(list(B10.pv, B11.pv, B12.pv), prep), blocks)
+  ab <- prep(AB.pv)
+  sing   <- unique(as.character(singleton$SNP))
+  lowvar <- unique(as.character(sing.lowvar$SNP))
+
+  all_trt <- local({
+    rows <- rbind(rbindlist(lapply(pv, function(d) d[tru(mT < 0.01), .(SNP, QCON, mT)])),
+                  ab[tru(mT < 0.001), .(SNP, QCON, mT)])
+    rows <- rows[, if (.N > 1) .SD, by = SNP]
+    unique(rows[tru(mT / QCON < 10), SNP])
+  })
+  excl_con <- unique(as.character(all_con$SNP))
+
+  keep <- function(d, S, v) {
+    if (v == "unfiltered" || (S == "CON" && v == "pipeline")) return(rep(TRUE, nrow(d)))
+    if (S != "CON") return(tru(d$QCON > f2))
+    tru(d$mT > f2)
+  }
+  excl <- function(S, v) {
+    if (v == "unfiltered") return(character(0))
+    if (S != "CON") return(excl_con)
+    if (v == "mirror") all_trt else character(0)
+  }
+  sig_b <- function(S, v, alpha) setNames(lapply(blocks, function(b) {
+    d <- pv[[b]]
+    setdiff(d$SNP[tru(d[[qc[S]]] < alpha[b]) & keep(d, S, v)], excl(S, v))
+  }), blocks)
+  univ_b <- function(S, v) setNames(lapply(blocks, function(b) {
+    d <- pv[[b]]
+    setdiff(d$SNP[is.finite(d[[qc[S]]]) & keep(d, S, v)], excl(S, v))
+  }), blocks)
+
+  tiers <- function(S, v) {
+    A <- sig_b(S, v, aA); B <- sig_b(S, v, aB); C <- sig_b(S, v, aC)
+    tierA <- Reduce(intersect, A)
+    uB <- unlist(B, use.names = FALSE); tierB <- unique(uB[duplicated(uB)])
+    core <- union(tierA, tierB)
+    ab_sig <- setdiff(ab$SNP[tru(ab[[qc[S]]] < aAB) & keep(ab, S, v)], excl(S, v))
+    uc <- c(unlist(C, use.names = FALSE), ab_sig)
+    convc <- setdiff(unique(uc[duplicated(uc)]), core)
+    conv  <- setdiff(convc, lowvar)
+    priv1 <- unique(unlist(lapply(blocks, function(b) {
+      d <- pv[[b]]; k <- keep(d, S, v)
+      pool <- if (S == "CON") d[k & tru(QCON < aC[b])] else d[k & tru(mT < aC[b])]
+      thr  <- quantile(pool[[qc[S]]], 0.01, na.rm = TRUE)
+      pool$SNP[tru(pool[[qc[S]]] < aC[b] & pool[[qc[S]]] < thr)]
+    })))
+    priv <- union(setdiff(intersect(setdiff(priv1, excl(S, v)), sing), c(core, conv)),
+                  intersect(convc, lowvar))
+    list(tierA = tierA, tierB = tierB, core = core, conv = conv, priv = priv)
+  }
+
+  # ss: per-spawn SNP sets; gg: matching gene vectors (NA = no gene)
+  stat <- function(ss, gg = lapply(ss, function(s) unname(gene_of[s]))) {
+    u   <- unlist(ss, use.names = FALSE)
+    gu  <- unlist(gg, use.names = FALSE)
+    dup <- duplicated(u)
+    gs  <- lapply(gg, function(g) unique(dropna(g)))
+    ug  <- unlist(gs, use.names = FALSE)
+    rec2 <- unique(ug[duplicated(ug)])
+    gsh <- unique(dropna(gu[dup]))
+    c(n2 = length(unique(u[dup])), n3 = length(Reduce(intersect, ss)),
+      g2 = length(rec2), g3 = length(Reduce(intersect, gs)),
+      turnover = if (length(rec2)) mean(!(rec2 %in% gsh)) else NA_real_)
+  }
+
+  overlap <- function(S, v) {
+    U  <- univ_b(S, v)
+    UG <- lapply(U, function(s) unname(gene_of[s]))
+    rbindlist(lapply(c("A", "B"), function(lvl) {
+      ss  <- sig_b(S, v, if (lvl == "A") aA else aB)
+      n_b <- lengths(ss)
+      obs <- stat(ss)
+      nul <- vapply(seq_len(P_null), function(z) {
+        idx <- lapply(blocks, function(b) sample.int(length(U[[b]]), n_b[[b]]))
+        stat(lapply(1:3, function(i) U[[i]][idx[[i]]]), lapply(1:3, function(i) UG[[i]][idx[[i]]]))
+      }, numeric(5))
+      data.table(variant = v, set = S, level = lvl, metric = names(obs),
+                 n_B10 = n_b[["B10"]], n_B11 = n_b[["B11"]], n_B12 = n_b[["B12"]],
+                 obs = obs, null_mean = rowMeans(nul, na.rm = TRUE),
+                 null_sd = apply(nul, 1, sd, na.rm = TRUE))[
+        , `:=`(fold = obs / null_mean, z = (obs - null_mean) / null_sd,
+               p_upper = (1 + rowSums(nul >= obs, na.rm = TRUE)) / (P_null + 1))]
+    }))
+  }
+
+  size_matched <- function(S, v) {
+    sT <- sig_b(S, v, aB); sC <- sig_b("CON", v, aB)
+    top <- setNames(lapply(blocks, function(b) {
+      d <- pv[[b]][SNP %in% sT[[b]]]
+      setorderv(d, pc[[S]])
+      head(d$SNP, length(sC[[b]]))
+    }), blocks)
+    o <- stat(top); cc <- stat(sC)
+    data.table(variant = v, set = S, metric = names(o),
+               n_B10 = length(top$B10), n_B11 = length(top$B11), n_B12 = length(top$B12),
+               trt_topn = o, CON = cc, ratio = o / cc)
+  }
+
+  grid <- CJ(v = variants, S = sets, sorted = FALSE)
+  tier_list <- setNames(lapply(seq_len(nrow(grid)), function(i) tiers(grid$S[i], grid$v[i])),
+                        paste(grid$v, grid$S, sep = "."))
+  counts <- rbindlist(lapply(seq_len(nrow(grid)), function(i) {
+    t <- tier_list[[i]]
+    data.table(variant = grid$v[i], set = grid$S[i], tierA = length(t$tierA), tierB = length(t$tierB),
+               core = length(t$core), convergent = length(t$conv), private = length(t$priv))
+  }))
+
+  if (file.exists("Sig.Loci.Core")) {
+    ref <- as.data.table(read.table("Sig.Loci.Core", header = TRUE))
+    val <- data.table(set = trts,
+                      pipeline_file = vapply(trts, function(s) uniqueN(ref[as.logical(get(paste0("Sig.", s))), SNP]), 1L),
+                      this_script   = counts[variant == "pipeline" & set %in% trts, core])
+    cat("\nValidation, Core counts (pipeline variant vs Sig.Loci.Core):\n"); print(val)
+  }
+
+  ov <- rbindlist(lapply(seq_len(nrow(grid)), function(i) overlap(grid$S[i], grid$v[i])))
+  conf <- ov[set == "CON", .(variant, level, metric, fold_CON = fold, obs_CON = obs)]
+  vs_con <- merge(ov[set != "CON", .(variant, set, level, metric, obs, fold, z, p_upper)],
+                  conf, by = c("variant", "level", "metric"))[, fold_ratio := fold / fold_CON]
+  setorder(vs_con, variant, level, metric, set)
+
+  sm <- rbindlist(lapply(variants, function(v) rbindlist(lapply(trts, size_matched, v = v))))
+
+  list(counts = counts, overlap = ov, vs_con = vs_con, size_matched = sm, tier_sets = tier_list)
+})
+```
+
+    ## 
+    ## Validation, Core counts (pipeline variant vs Sig.Loci.Core):
+    ##       set pipeline_file this_script
+    ##    <char>         <int>       <int>
+    ## 1:     CA           405         405
+    ## 2:     SE          1037        1037
+    ## 3:   CASE          1888        1888
+
+``` r
+# treatment vs control rate ratios (conditional binomial on observed/expected counts)
+rate_test <- function(ov) {
+  ov <- copy(ov)[metric %in% c("n2", "n3", "g2", "g3")]
+  ov[, exp := null_mean]
+  con <- ov[set == "CON", .(variant, level, metric, o_c = obs, e_c = exp)]
+  m <- merge(ov[set != "CON", .(variant, level, metric, set, o_t = obs, e_t = exp)], con,
+             by = c("variant", "level", "metric"))
+  m[, `:=`(rate_ratio = (o_t / e_t) / (o_c / e_c),
+           p_binom = mapply(function(ot, oc, et, ec) if (ot + oc == 0) NA_real_ else
+             binom.test(ot, ot + oc, et / (et + ec), alternative = "greater")$p.value,
+             o_t, o_c, e_t, e_c))]
+  m[]
 }
-core_res <- rbindlist(lapply(c("CA","SE","CASE"), tx_test))
-core_res[, treatment := factor(treatment, levels = c("CA","SE","CASE"))]
-fwrite(core_res, file.path(tab_dir, "Fig2_reproducibility_summary.csv"))
+contier_rates <- rate_test(chk_con$overlap)
+print(chk_con$counts)
+```
+
+    ## Index: <set__variant>
+    ##        variant    set tierA tierB  core convergent private
+    ##         <char> <char> <int> <int> <int>      <int>   <int>
+    ##  1:   pipeline     CA    15   405   405         43     151
+    ##  2:   pipeline     SE    18  1036  1037        111     171
+    ##  3:   pipeline   CASE    46  1884  1888        525     393
+    ##  4:   pipeline    CON     8   648   651        232     254
+    ##  5: unfiltered     CA    39  1113  1115        343     536
+    ##  6: unfiltered     SE    82  2563  2568        433     457
+    ##  7: unfiltered   CASE   142  4512  4522       1283     864
+    ##  8: unfiltered    CON     8   648   651        232     254
+    ##  9:     mirror     CA    15   405   405         43     151
+    ## 10:     mirror     SE    18  1036  1037        111     171
+    ## 11:     mirror   CASE    46  1884  1888        525     393
+    ## 12:     mirror    CON     0    71    71          8      13
+
+``` r
+print(contier_rates[metric %in% c("n2", "n3")], digits = 3)
+```
+
+    ## Key: <variant, level, metric>
+    ##        variant  level metric    set   o_t     e_t   o_c      e_c rate_ratio
+    ##         <char> <char> <char> <char> <num>   <num> <num>    <num>      <num>
+    ##  1:     mirror      A     n2     CA  1000  891.54   184  176.870      1.078
+    ##  2:     mirror      A     n2     SE  2348 1928.09   184  176.870      1.171
+    ##  3:     mirror      A     n2   CASE  3860 3222.37   184  176.870      1.151
+    ##  4:     mirror      A     n3     CA    15    6.75     0    0.526        Inf
+    ##  5:     mirror      A     n3     SE    18   17.32     0    0.526        Inf
+    ##  6:     mirror      A     n3   CASE    46   35.38     0    0.526        Inf
+    ##  7:     mirror      B     n2     CA   405  352.01    71   61.492      0.996
+    ##  8:     mirror      B     n2     SE  1036  789.99    71   61.492      1.136
+    ##  9:     mirror      B     n2   CASE  1884 1463.26    71   61.492      1.115
+    ## 10:     mirror      B     n3     CA     6    1.72     0    0.084        Inf
+    ## 11:     mirror      B     n3     SE     8    5.60     0    0.084        Inf
+    ## 12:     mirror      B     n3   CASE    24   12.91     0    0.084        Inf
+    ## 13:   pipeline      A     n2     CA  1000  890.44  1421 1240.928      0.981
+    ## 14:   pipeline      A     n2     SE  2348 1933.12  1421 1240.928      1.061
+    ## 15:   pipeline      A     n2   CASE  3860 3222.25  1421 1240.928      1.046
+    ## 16:   pipeline      A     n3     CA    15    7.03     8    9.692      2.584
+    ## 17:   pipeline      A     n3     SE    18   17.20     8    9.692      1.268
+    ## 18:   pipeline      A     n3   CASE    46   34.88     8    9.692      1.598
+    ## 19:   pipeline      B     n2     CA   405  352.23   648  569.674      1.011
+    ## 20:   pipeline      B     n2     SE  1036  789.01   648  569.674      1.154
+    ## 21:   pipeline      B     n2   CASE  1884 1468.74   648  569.674      1.128
+    ## 22:   pipeline      B     n3     CA     6    1.69     3    2.702      3.194
+    ## 23:   pipeline      B     n3     SE     8    5.52     3    2.702      1.306
+    ## 24:   pipeline      B     n3   CASE    24   12.96     3    2.702      1.668
+    ## 25: unfiltered      A     n2     CA  2359 2016.78  1421 1243.436      1.024
+    ## 26: unfiltered      A     n2     SE  5243 4109.87  1421 1243.436      1.116
+    ## 27: unfiltered      A     n2   CASE  8509 6663.54  1421 1243.436      1.117
+    ## 28: unfiltered      A     n3     CA    39   19.82     8    9.962      2.450
+    ## 29: unfiltered      A     n3     SE    82   45.24     8    9.962      2.257
+    ## 30: unfiltered      A     n3   CASE   142   90.91     8    9.962      1.945
+    ## 31: unfiltered      B     n2     CA  1113  913.89   648  569.604      1.071
+    ## 32: unfiltered      B     n2     SE  2563 1850.01   648  569.604      1.218
+    ## 33: unfiltered      B     n2   CASE  4512 3271.91   648  569.604      1.212
+    ## 34: unfiltered      B     n3     CA    14    5.92     3    2.638      2.081
+    ## 35: unfiltered      B     n3     SE    40   17.73     3    2.638      1.984
+    ## 36: unfiltered      B     n3   CASE    79   39.08     3    2.638      1.777
+    ##        variant  level metric    set   o_t     e_t   o_c      e_c rate_ratio
+    ##      p_binom
+    ##        <num>
+    ##  1: 1.85e-01
+    ##  2: 1.99e-02
+    ##  3: 3.13e-02
+    ##  4: 3.24e-01
+    ##  5: 5.84e-01
+    ##  6: 5.07e-01
+    ##  7: 5.43e-01
+    ##  8: 1.63e-01
+    ##  9: 2.01e-01
+    ## 10: 7.51e-01
+    ## 11: 8.88e-01
+    ## 12: 8.56e-01
+    ## 13: 6.88e-01
+    ## 14: 4.10e-02
+    ## 15: 7.49e-02
+    ## 16: 2.13e-02
+    ## 17: 3.68e-01
+    ## 18: 1.41e-01
+    ## 19: 4.44e-01
+    ## 20: 2.16e-03
+    ## 21: 4.17e-03
+    ## 22: 8.36e-02
+    ## 23: 4.86e-01
+    ## 24: 2.91e-01
+    ## 25: 2.50e-01
+    ## 26: 1.08e-04
+    ## 27: 4.67e-05
+    ## 28: 9.89e-03
+    ## 29: 1.19e-02
+    ## 30: 3.42e-02
+    ## 31: 8.74e-02
+    ## 32: 2.78e-06
+    ## 33: 1.54e-06
+    ## 34: 1.82e-01
+    ## 35: 1.75e-01
+    ## 36: 2.31e-01
+    ##      p_binom
+
+``` r
+fwrite(chk_con$counts,       file.path(tab_dir, "Fig2E_CONtier_counts.csv"))
+fwrite(chk_con$overlap,      file.path(tab_dir, "Fig2E_CONtier_overlap.csv"))
+fwrite(chk_con$size_matched, file.path(tab_dir, "Fig2E_CONtier_sizematched.csv"))
+fwrite(contier_rates,        file.path(tab_dir, "Fig2E_CONtier_rate_ratios.csv"))
 ```
 
 ``` r
-plt <- melt(core_res[, .(treatment, level, Observed = obs_2of3,
-                         `CON baseline` = con_mean, `Random null` = random_mean)],
-            id.vars = c("treatment","level"), variable.name = "src", value.name = "n")
-plt[, src := factor(src, levels = c("Observed","CON baseline","Random null"))]
-plt[, level := factor(level, levels = c("locus","gene"))]
-# anchor every annotation to a common line above each facet's max (so the tall CASE/gene
-# label can't ride into the panel top)
-ymax_by <- plt[, .(ymax = max(n)), by = level]
-lab <- merge(core_res[, .(treatment, level = factor(level, levels = c("locus","gene")),
-                          enrich_vs_CON, p_CON)], ymax_by, by = "level")
-# stagger annotation height by treatment so labels don't collide: CA lower, CASE higher
-ymax_mult <- c(CA = 1.05, SE = 1.16, CASE = 1.30)
-lab[, `:=`(y = ymax * ymax_mult[as.character(treatment)],
-           txt = sprintf("%.1fx vs CON\n(p=%.4f)", enrich_vs_CON, p_CON))]
-# Lollipop instead of grouped bars: a stem to each value + a point, dodged by series.
-dodge <- position_dodge(width = 0.6)
-fig2b <- ggplot(plt, aes(treatment, n, colour = src, group = src)) +
-  geom_linerange(aes(ymin = 0, ymax = n), position = dodge, linewidth = 0.7) +
-  geom_point(position = dodge, size = 3.4) +
-  geom_text(data = lab, inherit.aes = FALSE, aes(treatment, y, label = txt),
-            vjust = 0, size = 2.2, lineheight = 0.9) +
-  facet_wrap(~ level, scales = "free_y") +
-  scale_colour_manual(values = stat_cols, name = NULL) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.30))) +    # headroom for the common annotation line
-  labs(x = NULL, y = "Shared by >=2 of 3 spawns",
-       title = "Cross-spawn reproducibility vs matched baselines") +
+e_cols <- c(CA = "#E69F00", SE = "#0072B2", CASE = "#009E73", CON = "grey40")
+if (exists("treat_cols") && all(c("CA", "SE", "CASE") %in% names(treat_cols)))
+  e_cols[c("CA", "SE", "CASE")] <- treat_cols[c("CA", "SE", "CASE")]
+pe <- chk_con$overlap[variant %in% c("pipeline", "mirror") &
+                      ((level == "A" & metric == "n3") | (level == "B" & metric == "n2"))]
+pe[, metric  := factor(metric, levels = c("n3", "n2"), labels = c("All 3 spawns", ">=2 spawns"))]
+pe[, variant := factor(variant, levels = c("pipeline", "mirror"),
+                       labels = c("Control filter on treatments", "Reciprocal control filter"))]
+pe[, set := factor(set, levels = c("CA", "SE", "CASE", "CON"))]
+fig2e <- ggplot(pe, aes(metric, fold, colour = set)) +
+  geom_hline(yintercept = 1, linetype = "dashed", colour = "grey60") +
+  geom_point(position = position_dodge(width = 0.6), size = 3) +
+  geom_text(aes(label = obs), position = position_dodge(width = 0.6), vjust = -1.1,
+            size = 2.6, show.legend = FALSE) +
+  facet_wrap(~ variant) +
+  scale_colour_manual(values = e_cols, name = "Outlier set") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  labs(x = NULL, y = "Observed / random expectation",
+       title = "Cross-spawn overlap vs a control built with the same tiers") +
   theme_case(13) + theme(strip.background = element_blank(),
-                         strip.text = element_text(face = "bold"),
-                         legend.position = "right",                 # vertical (inside-panel is unreliable for facets)
-                         legend.key.size = unit(0.35, "cm"), plot.title.position = "plot")
-
-seq_blocks <- c(10, 11, 12)
-# composite-denominator survival per block x treatment (final_data_end$Survival = composite)
-mc <- final_data_end[Block %in% seq_blocks, .(surv = mean(Survival)), by = .(Block, Treatment)]
-con_surv <- mc[Treatment == "CON", .(Block, con = surv)]
-mc <- merge(mc[Treatment != "CON"], con_surv, by = "Block")
-mc[, excess_mort := con - surv]
-leth <- mc[, .(excess_mort = mean(excess_mort)), by = Treatment]
-coup <- merge(leth, core_res[level == "locus", .(treatment, enrich_vs_CON)],
-              by.x = "Treatment", by.y = "treatment")
-coup[, Treatment := factor(Treatment, levels = c("CA","SE","CASE"))]
-setorder(coup, excess_mort)
-fig2c <- ggplot(coup, aes(excess_mort, enrich_vs_CON)) +
-  geom_line(linetype = "dashed", colour = "grey50", linewidth = 0.6) +
-  geom_point(aes(fill = Treatment), shape = 25, size = 8, colour = "black", alpha = 0.9) +
-  geom_text(aes(label = Treatment), vjust = -1.6, size = 4.5) +
-  scale_fill_manual(values = treat_cols, guide = "none") +
-  scale_x_continuous(expand = expansion(mult = c(0.12, 0.12))) +
-  scale_y_continuous(expand = expansion(mult = c(0.08, 0.15))) +
-  labs(x = "Excess larval mortality vs CON\n(mean of SP2–SP4, % pts)",
-       y = "Reproducibility (fold vs CON)",
-       title = "Complexity Increases Response, Lowers Reproducibility") +
-  theme_case(13) + theme(legend.position = "none", plot.title.position = "plot")
+                         strip.text = element_text(face = "bold"), plot.title.position = "plot")
+fig2e
 ```
 
-## 2.3 Within-gene allele turnover (3E-A): same genes, different SNPs
+![](Final_reproducible_analysis_files/figure-gfm/fig2-contier-plot-1.png)<!-- -->
+
+## 2.2b Gene and pathway recurrence, treatment identity (redundancy tests)
+
+Q1/Q3: distinct-gene nulls (captured genes weighted by captured-SNP
+count; genes captured in \>= 2 spawns; all annotated genes for
+contrast). Q2: same-treatment vs other-treatment overlap across spawns,
+permuting treatment labels. Q3: GO-term recurrence across spawns vs
+random gene sets. The unfiltered control (CON) is read as a positive
+control for a repeatable, treatment-independent response; CONm is the
+control filtered reciprocally against treatment outliers.
+
+``` r
+chk_red <- local({
+  set.seed(42)
+  P_gene <- 500; P_go <- 200; P_perm <- 5000
+  # CON  = control, unfiltered (positive control: keeps the response shared with treatments)
+  # CONm = control filtered reciprocally (all treatment q > 0.10, minus a mirrored all_con built from
+  #        treatment q-values): the exact mirror of the treatment filter
+  trts <- c("CA", "SE", "CASE"); sets <- c(trts, "CON", "CONm")
+  qc <- c(CA = "QCA", SE = "QSE", CASE = "QCASE", CON = "QCON", CONm = "QCON")
+  aB <- c(B10 = 0.05, B11 = 0.10, B12 = 0.05)
+  f2 <- 0.10
+  go_p <- 0.01; go_k <- 3
+  dropna <- function(x) x[!is.na(x)]
+  tru    <- function(x) x %in% TRUE
+  # weighted sampling without replacement (Efraimidis-Spirakis keys); fast for large draws
+  wsample <- function(g, n, w = NULL) {
+    if (is.null(w)) return(sample(g, n))
+    g[order(log(runif(length(w))) / w, decreasing = TRUE)[seq_len(n)]]
+  }
+
+  prep <- function(d) {
+    d <- as.data.table(d)
+    if (!"SNP" %in% names(d)) d[, SNP := paste0(CHROM, "_", BP)]
+    for (q in intersect(unique(qc), names(d))) set(d, j = q, value = as.numeric(d[[q]]))
+    d[, mT := pmin(QCA, QSE, QCASE, na.rm = TRUE)]
+    d
+  }
+  pv <- setNames(lapply(list(B10.pv, B11.pv, B12.pv), prep), blocks)
+  ab <- prep(AB.pv)
+  excl_con <- unique(as.character(all_con$SNP))
+  # mirror of all_con: treatment-significant per spawn (q < 0.01) and across spawns (q < 0.001),
+  # >= 2 hits, treatment signal not much weaker than CON
+  all_trt <- local({
+    rows <- rbind(rbindlist(lapply(pv, function(d) d[tru(mT < 0.01), .(SNP, QCON, mT)])),
+                  ab[tru(mT < 0.001), .(SNP, QCON, mT)])
+    rows <- rows[, if (.N > 1) .SD, by = SNP]
+    unique(rows[tru(mT / QCON < 10), SNP])
+  })
+
+  sig_b <- function(S, v) setNames(lapply(blocks, function(b) {
+    d <- pv[[b]]
+    if (S == "CONm") return(setdiff(d$SNP[tru(d$QCON < aB[b]) & tru(d$mT > f2)], all_trt))
+    filt <- !(v == "unfiltered" || S == "CON")
+    k <- if (filt) tru(d$QCON > f2) else rep(TRUE, nrow(d))
+    s <- d$SNP[tru(d[[qc[S]]] < aB[b]) & k]
+    if (filt) setdiff(s, excl_con) else s
+  }), blocks)
+  g_of <- function(s) unique(dropna(unname(gene_of[s])))
+
+  # ---------------- Q1/Q3: gene recurrence against distinct-gene nulls ----------------
+  capt <- setNames(lapply(blocks, function(b) {
+    tb <- table(dropna(unname(gene_of[pv[[b]]$SNP]))); setNames(as.numeric(tb), names(tb))
+  }), blocks)
+  cg  <- unlist(lapply(capt, names), use.names = FALSE)
+  sh2 <- unique(cg[duplicated(cg)])
+  genome_genes <- unique(as.character(genes$gene))
+
+  gstat <- function(gs) {
+    ug <- unlist(gs, use.names = FALSE)
+    c(g2 = length(unique(ug[duplicated(ug)])), g3 = length(Reduce(intersect, gs)))
+  }
+  diffsnp <- function(ss) {
+    gs <- lapply(ss, g_of); ug <- unlist(gs, use.names = FALSE); rec2 <- unique(ug[duplicated(ug)])
+    u <- unlist(ss, use.names = FALSE); shg <- g_of(unique(u[duplicated(u)]))
+    c(g2_diffSNP = sum(!(rec2 %in% shg)), frac_diffSNP = if (length(rec2)) mean(!(rec2 %in% shg)) else NA_real_)
+  }
+  draw_univ <- function(b, u) switch(u,
+    captured = list(g = names(capt[[b]]), w = capt[[b]]),
+    shared2  = { k <- names(capt[[b]]) %in% sh2; list(g = names(capt[[b]])[k], w = capt[[b]][k]) },
+    genome   = list(g = genome_genes, w = NULL))
+
+  gene_q <- rbindlist(lapply(sets, function(S) {
+    v  <- "pipeline"
+    ss <- sig_b(S, v); gs <- lapply(ss, g_of); ds <- diffsnp(ss)
+    rbindlist(lapply(c("captured", "shared2", "genome"), function(u) {
+      U   <- setNames(lapply(blocks, draw_univ, u = u), blocks)
+      gsu <- setNames(lapply(blocks, function(b) intersect(gs[[b]], U[[b]]$g)), blocks)
+      n_b <- lengths(gsu)
+      obs <- gstat(gsu)
+      nul <- vapply(seq_len(P_gene), function(z) gstat(lapply(blocks, function(b)
+        wsample(U[[b]]$g, n_b[[b]], U[[b]]$w))), numeric(2))
+      data.table(set = S, universe = u, metric = names(obs),
+                 n_B10 = n_b[["B10"]], n_B11 = n_b[["B11"]], n_B12 = n_b[["B12"]],
+                 obs = obs, null_mean = rowMeans(nul), null_sd = apply(nul, 1, sd))[
+        , `:=`(fold = obs / null_mean, z = (obs - null_mean) / null_sd,
+               p_upper = (1 + rowSums(nul >= obs)) / (P_gene + 1),
+               g2_diffSNP = ds[["g2_diffSNP"]], frac_diffSNP = ds[["frac_diffSNP"]])]
+    }))
+  }))
+
+  # ---------------- Q2: treatment identity via cross-treatment, cross-spawn pairs ----------------
+  q2 <- function(v) {
+    S_all <- if (v == "unfiltered") c(trts, "CON") else c(trts, "CONm")
+    SS <- setNames(lapply(S_all, sig_b, v = v), S_all)
+    U  <- setNames(lapply(blocks, function(b) {
+      # universe = loci testable for every set in that spawn (no cross-filter, so the reciprocally
+      # filtered CONm and the CON-filtered treatments are scored on the same footing)
+      d <- pv[[b]]; ok <- Reduce(`&`, lapply(unique(qc[S_all]), function(q) is.finite(d[[q]])))
+      d$SNP[ok]
+    }), blocks)
+    UG <- lapply(U, g_of)
+    GS <- lapply(SS, function(x) lapply(x, g_of))
+    pairs <- CJ(i = blocks, j = blocks)[i != j]
+    oe <- function(a, b, u) {
+      a <- intersect(a, u); b <- intersect(b, u)
+      O <- length(intersect(a, b)); E <- length(a) * length(b) / length(u)
+      log2((O + 0.5) / (E + 0.5))
+    }
+    mats <- lapply(c(locus = "locus", gene = "gene"), function(lvl) lapply(seq_len(nrow(pairs)), function(k) {
+      i <- pairs$i[k]; j <- pairs$j[k]
+      u <- if (lvl == "locus") intersect(U[[i]], U[[j]]) else intersect(UG[[i]], UG[[j]])
+      m <- outer(S_all, S_all, Vectorize(function(s, t) {
+        if (lvl == "locus") oe(SS[[s]][[i]], SS[[t]][[j]], u) else oe(GS[[s]][[i]], GS[[t]][[j]], u)
+      }))
+      dimnames(m) <- list(S_all, S_all); m
+    }))
+    rbindlist(lapply(names(mats), function(lvl) {
+      ml <- mats[[lvl]]
+      stat_S <- function(perm) sapply(S_all, function(s)
+        mean(vapply(seq_along(ml), function(k) {
+          m <- ml[[k]]; p <- perm[[k]]; self <- p[s]
+          m[s, self] - mean(m[s, setdiff(S_all, self)])
+        }, numeric(1))))
+      ident <- replicate(length(ml), setNames(S_all, S_all), simplify = FALSE)
+      obs <- stat_S(ident)
+      nul <- replicate(P_perm, stat_S(replicate(length(ml), setNames(sample(S_all), S_all), simplify = FALSE)))
+      same <- sapply(S_all, function(s) mean(vapply(ml, function(m) m[s, s], numeric(1))))
+      othr <- sapply(S_all, function(s) mean(vapply(ml, function(m) mean(m[s, setdiff(S_all, s)]), numeric(1))))
+      data.table(variant = v, level = lvl, set = S_all,
+                 log2OE_same = same, log2OE_other = othr, diff = obs,
+                 p_perm = (1 + rowSums(nul >= obs)) / (P_perm + 1))
+    }))
+  }
+  q2_res <- rbind(q2("unfiltered"), q2("pipeline"))
+
+  # ---------------- Q3: GO-term recurrence across spawns ----------------
+  universe <- as.character(all_genes)
+  tl <- list()
+  for (o in c("BP", "CC", "MF")) {
+    gl <- factor(as.integer(seq_along(universe) <= 10)); names(gl) <- universe
+    td <- suppressMessages(new("topGOdata", ontology = o, allGenes = gl,
+                               annot = annFUN.gene2GO, gene2GO = gene2go_topgo, nodeSize = 5))
+    tl <- c(tl, genesInTerm(td))
+  }
+  tl <- tl[lengths(tl) >= 5 & lengths(tl) <= 500]
+  tl <- tl[!duplicated(names(tl))]
+  M  <- Matrix::sparseMatrix(i = match(unlist(tl, use.names = FALSE), universe),
+                             j = rep(seq_along(tl), lengths(tl)), x = 1,
+                             dims = c(length(universe), length(tl)))
+  tsize <- lengths(tl); N <- length(universe); tnames <- names(tl)
+  enr <- function(gset) {
+    idx <- which(universe %in% gset); if (!length(idx)) return(character(0))
+    x <- numeric(N); x[idx] <- 1
+    k <- as.numeric(Matrix::crossprod(M, x))
+    p <- phyper(k - 1, tsize, N - tsize, length(idx), lower.tail = FALSE)
+    tnames[p < go_p & k >= go_k]
+  }
+  tstat <- function(ts) {
+    ut <- unlist(ts, use.names = FALSE)
+    jac <- combn(3, 2, function(ix) { a <- ts[[ix[1]]]; b <- ts[[ix[2]]]
+      if (!length(union(a, b))) NA_real_ else length(intersect(a, b)) / length(union(a, b)) })
+    c(t2 = length(unique(ut[duplicated(ut)])), t3 = length(Reduce(intersect, ts)), jaccard = mean(jac, na.rm = TRUE))
+  }
+  capt_ann <- setNames(lapply(blocks, function(b) { k <- names(capt[[b]]) %in% universe
+    list(g = names(capt[[b]])[k], w = capt[[b]][k]) }), blocks)
+  go_terms <- list()
+  go_q <- rbindlist(lapply(sets, function(S) {
+    gs  <- lapply(sig_b(S, "pipeline"), function(s) intersect(g_of(s), universe))
+    ts  <- lapply(gs, enr); go_terms[[S]] <<- ts
+    n_b <- lengths(gs); obs <- tstat(ts)
+    nul <- vapply(seq_len(P_go), function(z) tstat(lapply(blocks, function(b)
+      enr(wsample(capt_ann[[b]]$g, n_b[[b]], capt_ann[[b]]$w)))), numeric(3))
+    data.table(set = S, metric = names(obs), n_terms_B10 = length(ts$B10), n_terms_B11 = length(ts$B11),
+               n_terms_B12 = length(ts$B12), obs = obs, null_mean = rowMeans(nul, na.rm = TRUE),
+               null_sd = apply(nul, 1, sd, na.rm = TRUE))[
+      , `:=`(fold = obs / null_mean, z = (obs - null_mean) / null_sd,
+             p_upper = (1 + rowSums(nul >= obs, na.rm = TRUE)) / (P_go + 1))]
+  }))
+  go_cross <- rbindlist(lapply(sets, function(s) rbindlist(lapply(sets, function(t) {
+    pr <- CJ(i = blocks, j = blocks)[i != j]
+    jj <- vapply(seq_len(nrow(pr)), function(k) { a <- go_terms[[s]][[pr$i[k]]]; b <- go_terms[[t]][[pr$j[k]]]
+      if (!length(union(a, b))) NA_real_ else length(intersect(a, b)) / length(union(a, b)) }, numeric(1))
+    data.table(set_i = s, set_j = t, mean_jaccard = mean(jj, na.rm = TRUE))
+  }))))
+
+  list(gene = gene_q, identity = q2_res, go = go_q, go_cross = go_cross, go_terms = go_terms)
+})
+
+print(chk_red$gene[metric == "g3" & universe == "captured"], digits = 3)
+```
+
+    ##       set universe metric n_B10 n_B11 n_B12   obs null_mean null_sd  fold     z
+    ##    <char>   <char> <char> <int> <int> <int> <int>     <num>   <num> <num> <num>
+    ## 1:     CA captured     g3  2303  2288  5576   892       845    16.7  1.06 2.803
+    ## 2:     SE captured     g3  5663  1983  5016  1393      1305    18.2  1.07 4.869
+    ## 3:   CASE captured     g3  6885  2172  5005  1562      1525    18.2  1.02 2.022
+    ## 4:    CON captured     g3  1931  2493  6734   847       820    15.9  1.03 1.701
+    ## 5:   CONm captured     g3   670  1655  3679   218       207    10.8  1.05 0.979
+    ##    p_upper g2_diffSNP frac_diffSNP
+    ##      <num>      <num>        <num>
+    ## 1:  0.0020       2473        0.885
+    ## 2:  0.0020       3180        0.813
+    ## 3:  0.0259       3208        0.737
+    ## 4:  0.0599       2566        0.847
+    ## 5:  0.1856       1233        0.951
+
+``` r
+print(chk_red$identity, digits = 3)
+```
+
+    ##        variant  level    set log2OE_same log2OE_other      diff p_perm
+    ##         <char> <char> <char>       <num>        <num>     <num>  <num>
+    ##  1: unfiltered  locus     CA      0.1415        0.206 -0.064059 0.9400
+    ##  2: unfiltered  locus     SE      0.1804        0.188 -0.007757 0.6331
+    ##  3: unfiltered  locus   CASE      0.1606        0.206 -0.045654 0.9070
+    ##  4: unfiltered  locus    CON      0.0257        0.186 -0.160397 1.0000
+    ##  5: unfiltered   gene     CA      0.1840        0.171  0.012926 0.3761
+    ##  6: unfiltered   gene     SE      0.1224        0.150 -0.027673 0.7540
+    ##  7: unfiltered   gene   CASE      0.0827        0.136 -0.053368 0.9832
+    ##  8: unfiltered   gene    CON      0.2516        0.188  0.063160 0.0120
+    ##  9:   pipeline  locus     CA      0.0980        0.126 -0.028148 0.6491
+    ## 10:   pipeline  locus     SE      0.1498        0.147  0.002472 0.5017
+    ## 11:   pipeline  locus   CASE      0.1116        0.165 -0.053406 0.7471
+    ## 12:   pipeline  locus   CONm      0.0143        0.069 -0.054710 0.6439
+    ## 13:   pipeline   gene     CA      0.3100        0.311 -0.000956 0.4961
+    ## 14:   pipeline   gene     SE      0.2254        0.281 -0.055168 0.8136
+    ## 15:   pipeline   gene   CASE      0.1511        0.251 -0.099481 0.9996
+    ## 16:   pipeline   gene   CONm      0.5755        0.359  0.216944 0.0014
+
+``` r
+print(chk_red$go, digits = 3)
+```
+
+    ##        set  metric n_terms_B10 n_terms_B11 n_terms_B12     obs null_mean
+    ##     <char>  <char>       <int>       <int>       <int>   <num>     <num>
+    ##  1:     CA      t2         236         243         457 268.000   216.060
+    ##  2:     CA      t3         236         243         457 121.000    88.505
+    ##  3:     CA jaccard         236         243         457   0.375     0.312
+    ##  4:     SE      t2         547         257         372 337.000   294.455
+    ##  5:     SE      t3         547         257         372 166.000   125.725
+    ##  6:     SE jaccard         547         257         372   0.398     0.356
+    ##  7:   CASE      t2         637         265         380 377.000   323.780
+    ##  8:   CASE      t3         637         265         380 148.000   139.595
+    ##  9:   CASE jaccard         637         265         380   0.351     0.357
+    ## 10:    CON      t2         177         293         544 273.000   231.895
+    ## 11:    CON      t3         177         293         544 110.000    83.265
+    ## 12:    CON jaccard         177         293         544   0.324     0.285
+    ## 13:   CONm      t2          61         171         362 143.000   119.945
+    ## 14:   CONm      t3          61         171         362  39.000    31.000
+    ## 15:   CONm jaccard          61         171         362   0.222     0.208
+    ##     null_sd  fold      z p_upper
+    ##       <num> <num>  <num>   <num>
+    ##  1: 19.6519 1.240  2.643 0.00498
+    ##  2: 11.7178 1.367  2.773 0.00995
+    ##  3:  0.0236 1.203  2.687 0.00995
+    ##  4: 22.3696 1.144  1.902 0.02985
+    ##  5: 13.8411 1.320  2.910 0.00995
+    ##  6:  0.0231 1.118  1.822 0.03483
+    ##  7: 21.9927 1.164  2.420 0.02985
+    ##  8: 13.9024 1.060  0.605 0.29353
+    ##  9:  0.0220 0.985 -0.243 0.55224
+    ## 10: 21.0186 1.177  1.956 0.02985
+    ## 11: 12.7797 1.321  2.092 0.02985
+    ## 12:  0.0258 1.137  1.509 0.08955
+    ## 13: 16.6490 1.192  1.385 0.09950
+    ## 14:  8.3051 1.258  0.963 0.17413
+    ## 15:  0.0297 1.063  0.445 0.30846
+
+``` r
+fwrite(chk_red$gene,     file.path(tab_dir, "Fig2_redundancy_gene.csv"))
+fwrite(chk_red$identity, file.path(tab_dir, "Fig2_redundancy_identity.csv"))
+fwrite(chk_red$go,       file.path(tab_dir, "Fig2_redundancy_GO.csv"))
+fwrite(chk_red$go_cross, file.path(tab_dir, "Fig2_redundancy_GO_cross.csv"))
+```
+
+## 2.3 Within-gene allele turnover (Fig 2F): same genes, different SNPs
 
 ``` r
   # TRUE CASE outliers only = SNPs in the tier sets (Core/Convergent/Private) with
@@ -6526,17 +6994,13 @@ turnover
 ``` r
 design2 <- "
 AABBCC
-DDEEFF
-GGGGGH
+DDEEEE
+FFFFFG
 "
 fig2 <-  block_pcas$B10 + block_pcas$B11 + block_pcas$B12 + pca_dAF +
-          fig2b + fig2c + free(turnover) + guide_area() +
-          plot_layout(design = design2, guides = "collect") +   # collect legends into the H guide area
-          plot_annotation(tag_levels = list(c("A","B","C","D","E","F","G",""))) &
-          # legend.position = "right" -> vertical direction by default, suits the narrow
-          # guide_area column (H) better than "bottom". Per-plot guides(fill/shape = "none")
-          # (set on B11/B12 PCAs and fig2c) survive this `&` theme since guides() is
-          # layer-level, not a theme element, so it can't be overridden here.
+          fig2e + free(turnover) + guide_area() +
+          plot_layout(design = design2, guides = "collect") +   # collect legends into the G guide area
+          plot_annotation(tag_levels = list(c("A","B","C","D","E","F",""))) &
           theme(legend.position = "right",
                 legend.direction = "vertical",
                 legend.box = "vertical",
