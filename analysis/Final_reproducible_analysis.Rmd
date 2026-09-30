@@ -2742,6 +2742,7 @@ fig2e <- ggplot(pe, aes(metric, fold, colour = set)) +
             size = 2.6, show.legend = FALSE) +
   facet_wrap(~ variant) +
   scale_colour_manual(values = e_cols, name = "Outlier set") +
+  guides(colour = "none") +   # same colours as the Treatment legend collected from the PCAs
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
   labs(x = NULL, y = "Observed / random expectation",
        title = "Cross-spawn overlap vs a control built with the same tiers") +
@@ -3013,6 +3014,7 @@ fwrite(chk_red$go_cross, file.path(tab_dir, "Fig2_redundancy_GO_cross.csv"))
     theme_case(13)
 turnover
 ```
+
 ## 2.4 Assemble Fig 2 (patchwork)
 
 ```{r fig2-assemble, fig.width=15, fig.height=12}
