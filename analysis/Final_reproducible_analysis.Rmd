@@ -4372,8 +4372,16 @@ write.csv(tabS3, file.path(tab_dir, "TableS3_tier_locus_counts.csv"), row.names 
 print(tabS3)
 
 # Table S4 - full significant-loci table (tier + treatment flags)
-write.csv(as.data.frame(grouped_total.sig),
-          file.path(tab_dir, "TableS4_significant_loci.csv"), row.names = FALSE)
+s4_tier <- bind_rows(
+  distinct(core.sig, SNP)       %>% mutate(Tier = "Core"),
+  distinct(convergent.sig, SNP) %>% mutate(Tier = "Convergent"),
+  distinct(private.sig, SNP)    %>% mutate(Tier = "Private"))
+stopifnot(!anyDuplicated(s4_tier$SNP))
+tabS4 <- left_join(as.data.frame(grouped_total.sig), s4_tier, by = "SNP") %>%
+  relocate(Tier, .after = SNP)
+if (anyNA(tabS4$Tier)) warning(sum(is.na(tabS4$Tier)), " Table S4 loci have no tier")
+print(table(tabS4$Tier, useNA = "ifany"))
+write.csv(tabS4, file.path(tab_dir, "TableS4_significant_loci.csv"), row.names = FALSE)
 
 # Table S5 - GO enrichment (per-stressor topGO results, combined)
 go_all <- rbindlist(lapply(c("ALL","CA","SE","CASE"), function(tr) {
