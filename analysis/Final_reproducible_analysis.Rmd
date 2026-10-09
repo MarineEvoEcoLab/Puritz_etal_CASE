@@ -3327,8 +3327,7 @@ fig3 <- ggplot(mapping = aes(x, y)) +
   # scale_y_continuous(expand=c(0,0), limits = rng) +
   labs(x = lab_dAF_add_note,
        y = lab_dAF_case_note,
-       title = "Fig 3. Additivity of allele-frequency change",
-       subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = spawn") +
+       title = NULL, subtitle = NULL) +  # Evolution: no titles in figure images; legend is in the text
   theme_case(12)
 fig3
 save_case(fig3, "Fig3_magnitude_additivity.png", width = 11, height = 7)
@@ -3617,7 +3616,7 @@ godat <- rbindlist(lapply(names(go_files), function(tr) {
   # facet panels are guaranteed equal-width and fill the plot area, avoiding the
   # wrap_elements() sizing issues we kept hitting with a 3-plot stack.
   label_df <- data.table(stressor = factor(c("CA","SE","CASE"), levels = c("CA","SE","CASE")),
-                          x = -Inf, y = Inf, lab = c("CA Enriched GO Terms (all blocks)","SE Enriched GO Terms (all blocks)","CASE Enriched GO Terms (all blocks)"))
+                          x = -Inf, y = Inf, lab = c("CA Enriched GO Terms (all spawns)","SE Enriched GO Terms (all spawns)","CASE Enriched GO Terms (all spawns)"))
   go_panel <- ggplot(godat, aes(x, neglogp)) +
     geom_vline(xintercept = sep_x, linetype = "dashed", colour = "grey80", linewidth = 0.4) +
     geom_point(aes(shape = cat, fill = stressor), size = 1.8, alpha = 0.65, color= "black") +
