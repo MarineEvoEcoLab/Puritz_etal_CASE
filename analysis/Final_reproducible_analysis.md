@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-10-09
+2026-10-12
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -7619,7 +7619,7 @@ manhattan_block <- function(pv_df, block_num, treatment_col, qcolumn, base_color
   in_sg <- pp$SNP %in% singleton$SNP
   pp$Group <- dplyr::case_when(pp$SNP %in% con_b ~ "CON Filtered",
     in_ac ~ "CON Filtered", in_cf ~ "CON Filtered",
-    in_sg ~ "Single-Block", TRUE ~ "Shared SNP")
+    in_sg ~ "Single-Spawn", TRUE ~ "Shared SNP")
   man <- ggman(pp, pvalue = qcolumn, chr = "CHR", snp = "SNP", bp = "BP",
                relative.positions = TRUE, sigLine = NA, pointSize = 1.5, title = "", alpha = 0.5)
   dfm <- man[[1]]; dfm$chrom_alt <- factor(dfm$chrom_alt, levels = c(0, 1))
