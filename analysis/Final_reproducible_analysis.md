@@ -1,7 +1,7 @@
 CASE: Reproducible Analysis (Coastal Acidification and Sewage Effluent)
 ================
 Jonathan Puritz
-2026-09-30
+2026-10-09
 
 - [Setup](#setup)
   - [Software environment](#software-environment)
@@ -7390,8 +7390,7 @@ fig3 <- ggplot(mapping = aes(x, y)) +
   # scale_y_continuous(expand=c(0,0), limits = rng) +
   labs(x = lab_dAF_add_note,
        y = lab_dAF_case_note,
-       title = "Fig 3. Additivity of allele-frequency change",
-       subtitle = "dashed = additive 1:1;  solid black = per-panel orthogonal fit;  grey = non-outlier subsample;  colour = spawn") +
+       title = NULL, subtitle = NULL) +  # Evolution: no titles in figure images; legend is in the text
   theme_case(12)
 fig3
 ```
@@ -7740,7 +7739,7 @@ godat <- rbindlist(lapply(names(go_files), function(tr) {
   # facet panels are guaranteed equal-width and fill the plot area, avoiding the
   # wrap_elements() sizing issues we kept hitting with a 3-plot stack.
   label_df <- data.table(stressor = factor(c("CA","SE","CASE"), levels = c("CA","SE","CASE")),
-                          x = -Inf, y = Inf, lab = c("CA Enriched GO Terms (all blocks)","SE Enriched GO Terms (all blocks)","CASE Enriched GO Terms (all blocks)"))
+                          x = -Inf, y = Inf, lab = c("CA Enriched GO Terms (all spawns)","SE Enriched GO Terms (all spawns)","CASE Enriched GO Terms (all spawns)"))
   go_panel <- ggplot(godat, aes(x, neglogp)) +
     geom_vline(xintercept = sep_x, linetype = "dashed", colour = "grey80", linewidth = 0.4) +
     geom_point(aes(shape = cat, fill = stressor), size = 1.8, alpha = 0.65, color= "black") +
@@ -8597,8 +8596,23 @@ print(tabS3)
 
 ``` r
 # Table S4 - full significant-loci table (tier + treatment flags)
-write.csv(as.data.frame(grouped_total.sig),
-          file.path(tab_dir, "TableS4_significant_loci.csv"), row.names = FALSE)
+s4_tier <- bind_rows(
+  distinct(core.sig, SNP)       %>% mutate(Tier = "Core"),
+  distinct(convergent.sig, SNP) %>% mutate(Tier = "Convergent"),
+  distinct(private.sig, SNP)    %>% mutate(Tier = "Private"))
+stopifnot(!anyDuplicated(s4_tier$SNP))
+tabS4 <- left_join(as.data.frame(grouped_total.sig), s4_tier, by = "SNP") %>%
+  relocate(Tier, .after = SNP)
+if (anyNA(tabS4$Tier)) warning(sum(is.na(tabS4$Tier)), " Table S4 loci have no tier")
+print(table(tabS4$Tier, useNA = "ifany"))
+```
+
+    ## 
+    ## Convergent       Core    Private 
+    ##        493       2436        543
+
+``` r
+write.csv(tabS4, file.path(tab_dir, "TableS4_significant_loci.csv"), row.names = FALSE)
 
 # Table S5 - GO enrichment (per-stressor topGO results, combined)
 go_all <- rbindlist(lapply(c("ALL","CA","SE","CASE"), function(tr) {
